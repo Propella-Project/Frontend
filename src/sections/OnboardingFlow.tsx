@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { useStore } from "@/store";
+import { useAppStore } from "@/state/app.store";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { QuizInterface } from "@/sections/QuizInterface";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { QuizInterface } from "@/sections/QuizInterface";
+import { Progress } from "@/components/ui/progress";
 
 import { JAMB_SUBJECTS, PERSONALITIES } from "@/types";
 import type { LearningFormat, VoicePreference, PersonalityType } from "@/types";
+import type { QuizResultItem } from "@/types/api.types";
 import {
   ChevronRight,
   ChevronLeft,
@@ -24,6 +28,7 @@ import {
   Trophy,
   Target,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,13 +37,22 @@ type Step = (typeof STEPS)[number];
 
 export function OnboardingFlow() {
   const {
-    setUser,
-    setSelectedSubjects,
-    startQuiz,
-    completeOnboarding,
-    completeDiagnosticQuiz,
+    setUser: setStoreUser,
+    setSelectedSubjects: setStoreSelectedSubjects,
+    startQuiz: startStoreQuiz,
+    completeOnboarding: completeStoreOnboarding,
+    completeDiagnosticQuiz: completeStoreDiagnosticQuiz,
     currentQuiz,
   } = useStore();
+
+  const { diagnosticQuiz } = useAppStore();
+
+  const {
+    loading: apiLoading,
+    // saveExamProfile,  // Commented out - API not ready yet
+    // saveSubjects,     // Commented out - API not ready yet
+    // submitDiagnosticResults, // Commented out - API not ready yet
+  } = useOnboarding();
 
   const [currentStep, setCurrentStep] = useState<Step>("profile");
   const [stepIndex, setStepIndex] = useState(0);
@@ -64,23 +78,34 @@ export function OnboardingFlow() {
 
   // Watch for quiz completion
   useEffect(() => {
-    if (currentStep === "diagnostic" && !currentQuiz) {
+    if (currentStep === "diagnostic" && !currentQuiz && diagnosticQuiz) {
       // Quiz was completed, analyze results
       handleDiagnosticComplete();
     }
-  }, [currentQuiz, currentStep]);
+  }, [currentQuiz, currentStep, diagnosticQuiz]);
 
-  const handleDiagnosticComplete = () => {
+  const handleDiagnosticComplete = async () => {
     const store = useStore.getState();
     const quiz = store.quizHistory[store.quizHistory.length - 1];
 
     if (quiz && quiz.type === "diagnostic") {
       let correct = 0;
+      const quizResults: QuizResultItem[] = [];
+
       quiz.questions.forEach((q, i) => {
-        if (quiz.answers[i] === q.correctAnswer) {
-          correct++;
-        }
+        const isCorrect = quiz.answers[i] === q.correctAnswer;
+        if (isCorrect) correct++;
+
+        // Build result item for API
+        quizResults.push({
+          subject: q.subjectId,
+          question: q.question,
+          timeUsed: q.options.length * 10, // Estimated time
+          userAnswer: q.options[quiz.answers[i]] || "",
+          correctAnswer: q.options[q.correctAnswer],
+        });
       });
+
       const score = Math.round((correct / quiz.totalQuestions) * 100);
       setDiagnosticScore(score);
 
@@ -145,19 +170,129 @@ export function OnboardingFlow() {
       };
 
       setDiagnosticResultsState(results);
-      completeDiagnosticQuiz(results);
+      completeStoreDiagnosticQuiz(results);
+
+      // Submit results to API (commented out - endpoint not ready yet)
+      // await submitDiagnosticResults(quizResults);
+
       setShowDiagnosticResults(true);
       setCurrentStep("results");
       setStepIndex(3);
     }
   };
 
-  const handleFinishOnboarding = () => {
-    // Start 5-second processing animation before completing onboarding
+  const handleFinishOnboarding = async () => {
+    // Start processing animation before completing onboarding
     setIsProcessing(true);
+
+    // Simulate processing time for roadmap generation
     setTimeout(() => {
-      completeOnboarding();
+      completeStoreOnboarding();
     }, 5000);
+  };
+
+  const handleNext = () => {
+    if (currentStep === "profile") {
+      if (!nickname.trim()) {
+        toast.error("Please enter your nickname");
+        return;
+      }
+      if (selectedSubjectIds.length === 0) {
+        toast.error("Please select at least one subject");
+        return;
+      }
+      if (selectedSubjectIds.length !== 4) {
+        toast.error("Please select exactly 4 subjects");
+        return;
+      }
+      if (!examDate) {
+        toast.error("Please select your exam date");
+        return;
+      }
+
+      // Save to local store only (API will be called when starting quiz)
+      setStoreUser({
+        nickname,
+        examDate: new Date(examDate),
+        dailyStudyHours: dailyHours,
+      });
+
+      const selectedSubs = JAMB_SUBJECTS.filter((s) =>
+        selectedSubjectIds.includes(s.id),
+      );
+      setStoreSelectedSubjects(selectedSubs);
+
+      setCurrentStep("preferences");
+      setStepIndex(1);
+    }
+  };
+
+  const handleStartDiagnosticQuiz = async () => {
+    setIsProcessing(true);
+    
+    // Save preferences to local store
+    setStoreUser({
+      learningFormat,
+      personality,
+      voicePreference: voice,
+    });
+
+    // Prepare data for API (commented out - backend endpoints not ready yet)
+    // const subjectNames = selectedSubjectIds
+    //   .slice(0, 4)
+    //   .map((id) => JAMB_SUBJECTS.find((s) => s.id === id)?.name || id);
+
+    // API calls commented out - backend endpoints not ready yet
+    // Step 1: Save exam profile (commented out)
+    // const profileSuccess = await saveExamProfile({
+    //   nickname: nickname,
+    //   exam_date: examDate,
+    //   daily_hours: dailyHours,
+    //   study_hours_per_day: dailyHours,
+    //   personality: personality,
+    //   ai_tutor_selected: PERSONALITIES[personality].name,
+    //   ai_voice_enabled: voice === "female" || voice === "male",
+    // });
+    // if (!profileSuccess) {
+    //   toast.error("Failed to save profile. Please try again.");
+    //   setIsProcessing(false);
+    //   return;
+    // }
+
+    // Step 2: Save subjects (commented out)
+    // const subjectsSuccess = await saveSubjects({
+    //   subjects: subjectNames,
+    // });
+    // if (!subjectsSuccess) {
+    //   toast.error("Failed to save subjects. Please try again.");
+    //   setIsProcessing(false);
+    //   return;
+    // }
+
+    // Step 3: Use templated questions (API endpoint not ready yet)
+    const subjectsToQuiz = selectedSubjectIds.slice(0, 4);
+    startStoreQuiz(subjectsToQuiz[0], null, "diagnostic", subjectsToQuiz);
+
+    setIsProcessing(false);
+    setCurrentStep("diagnostic");
+    setStepIndex(2);
+  };
+
+  const handleBack = () => {
+    if (currentStep === "preferences") {
+      setCurrentStep("profile");
+      setStepIndex(0);
+    }
+  };
+
+  const toggleSubject = (subjectId: string) => {
+    setSelectedSubjectIds((prev) =>
+      prev.includes(subjectId)
+        ? prev.filter((id) => id !== subjectId)
+        : prev.length < 4
+          ? [...prev, subjectId]
+          : prev,
+    );
   };
 
   // Show processing animation
@@ -182,7 +317,7 @@ export function OnboardingFlow() {
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="w-20 h-20 border-4 border-[#2A2A2E] border-t-[#CCFF00] border-r-[#6D28D9] rounded-full mx-auto mb-6"
             />
-            
+
             <h2 className="text-2xl font-bold mb-2">Processing Results...</h2>
             <p className="text-[#9CA3AF] mb-8">
               Analyzing your strengths and weaknesses
@@ -204,72 +339,19 @@ export function OnboardingFlow() {
                 />
               ))}
             </div>
+
+            {/* Progress Bar */}
+            <div className="mt-8 w-64 mx-auto">
+              <Progress value={60} className="h-2" />
+              <p className="text-sm text-[#9CA3AF] mt-2">
+                Generating your roadmap...
+              </p>
+            </div>
           </motion.div>
         </div>
       </div>
     );
   }
-
-  const handleNext = () => {
-    if (currentStep === "profile") {
-      if (!nickname.trim()) {
-        toast.error("Please enter your nickname");
-        return;
-      }
-      if (selectedSubjectIds.length === 0) {
-        toast.error("Please select at least one subject");
-        return;
-      }
-      if (!examDate) {
-        toast.error("Please select your exam date");
-        return;
-      }
-
-      setUser({
-        nickname,
-        examDate: new Date(examDate),
-        dailyStudyHours: dailyHours,
-      });
-
-      const selectedSubs = JAMB_SUBJECTS.filter((s) =>
-        selectedSubjectIds.includes(s.id),
-      );
-      setSelectedSubjects(selectedSubs);
-
-      setCurrentStep("preferences");
-      setStepIndex(1);
-    } else if (currentStep === "preferences") {
-      setUser({
-        learningFormat,
-        personality,
-        voicePreference: voice,
-      });
-
-      // Start the diagnostic quiz with all selected subjects (up to 4)
-      const subjectsToQuiz = selectedSubjectIds.slice(0, 4);
-      startQuiz(subjectsToQuiz[0], null, "diagnostic", subjectsToQuiz);
-
-      setCurrentStep("diagnostic");
-      setStepIndex(2);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep === "preferences") {
-      setCurrentStep("profile");
-      setStepIndex(0);
-    }
-  };
-
-  const toggleSubject = (subjectId: string) => {
-    setSelectedSubjectIds((prev) =>
-      prev.includes(subjectId)
-        ? prev.filter((id) => id !== subjectId)
-        : prev.length < 4
-          ? [...prev, subjectId]
-          : prev,
-    );
-  };
 
   // Show quiz during diagnostic step
   if (currentStep === "diagnostic") {
@@ -331,7 +413,11 @@ export function OnboardingFlow() {
               >
                 <div className="text-center">
                   <Trophy
-                    className={`w-12 h-12 mx-auto mb-2 ${diagnosticScore >= 50 ? "text-[#10B981]" : "text-[#F59E0B]"}`}
+                    className={`w-12 h-12 mx-auto mb-2 ${
+                      diagnosticScore >= 50
+                        ? "text-[#10B981]"
+                        : "text-[#F59E0B]"
+                    }`}
                   />
                   <span className="text-4xl font-bold">{diagnosticScore}%</span>
                 </div>
@@ -382,7 +468,9 @@ export function OnboardingFlow() {
                             initial={{ width: 0 }}
                             animate={{ width: `${score}%` }}
                             transition={{ duration: 0.5, delay: 0.2 }}
-                            className={`h-full ${score >= 50 ? "bg-[#10B981]" : "bg-[#F59E0B]"}`}
+                            className={`h-full ${
+                              score >= 50 ? "bg-[#10B981]" : "bg-[#F59E0B]"
+                            }`}
                           />
                         </div>
                       </div>
@@ -409,10 +497,20 @@ export function OnboardingFlow() {
 
             <Button
               onClick={handleFinishOnboarding}
+              disabled={apiLoading}
               className="w-full max-w-md h-14 bg-gradient-to-r from-[#6D28D9] to-[#CCFF00] hover:from-[#5B21B6] hover:to-[#B3E600] text-[#0F0F11] font-semibold text-lg"
             >
-              <Sparkles className="mr-2" />
-              Start My Journey
+              {apiLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2" />
+                  Start My Journey
+                </>
+              )}
             </Button>
           </motion.div>
         </div>
@@ -491,7 +589,7 @@ export function OnboardingFlow() {
               <div className="mb-6">
                 <Label className="text-sm font-medium mb-3 flex items-center gap-2">
                   <BookOpen size={16} />
-                  Select Your JAMB Subjects (up to 4)
+                  Select Your JAMB Subjects (exactly 4)
                 </Label>
                 <div className="grid grid-cols-2 gap-3">
                   {JAMB_SUBJECTS.slice(0, 8).map((subject) => (
@@ -530,6 +628,13 @@ export function OnboardingFlow() {
                     Maximum 4 subjects selected
                   </p>
                 )}
+                {selectedSubjectIds.length > 0 &&
+                  selectedSubjectIds.length < 4 && (
+                    <p className="text-xs text-[#CCFF00] mt-2">
+                      Select {4 - selectedSubjectIds.length} more subject
+                      {selectedSubjectIds.length === 3 ? "" : "s"}
+                    </p>
+                  )}
               </div>
 
               {/* Exam Date */}
@@ -570,6 +675,7 @@ export function OnboardingFlow() {
 
               <Button
                 onClick={handleNext}
+                disabled={selectedSubjectIds.length !== 4}
                 className="w-full h-14 bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#5B21B6] hover:to-[#7C3AED] text-white font-semibold text-lg"
               >
                 Continue
@@ -670,14 +776,9 @@ export function OnboardingFlow() {
                             {config.greeting}
                           </p>
                           <div className="flex gap-2 mt-2">
-                            {config.encouragement.slice(0, 2).map((_, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs bg-[#0F0F11] px-2 py-1 rounded-full text-[#9CA3AF]"
-                              >
-                                {config.tone}
-                              </span>
-                            ))}
+                            <span className="text-xs bg-[#0F0F11] px-2 py-1 rounded-full text-[#9CA3AF]">
+                              {config.tone}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -722,7 +823,7 @@ export function OnboardingFlow() {
               </div>
 
               <Button
-                onClick={handleNext}
+                onClick={handleStartDiagnosticQuiz}
                 className="w-full h-14 bg-gradient-to-r from-[#6D28D9] to-[#CCFF00] hover:from-[#5B21B6] hover:to-[#B3E600] text-[#0F0F11] font-semibold text-lg"
               >
                 <Sparkles className="mr-2" />
@@ -735,3 +836,5 @@ export function OnboardingFlow() {
     </div>
   );
 }
+
+// ChevronLeft icon - now imported from lucide-react

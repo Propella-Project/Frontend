@@ -1,9 +1,11 @@
 import { useStore } from '@/store';
+import { useUserStore } from '@/state/user.store';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { SettingsDropdown } from '@/features/settings/SettingsDropdown';
 import {
   Flame,
   Target,
@@ -16,13 +18,14 @@ import {
   BookOpen,
   Star,
   Trophy,
-  Settings,
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { PERSONALITIES, RANKS } from '@/types';
+import { getGreeting } from '@/utils/greeting';
 
 export function Dashboard() {
-  const { user, gamification, roadmap, assignments, quizHistory, setCurrentPage, resumeOnboarding } = useStore();
+  const { user, gamification, roadmap, assignments, quizHistory, setCurrentPage } = useStore();
+  const { nickname } = useUserStore();
 
   if (!user) return null;
 
@@ -30,6 +33,9 @@ export function Dashboard() {
   const currentDay = roadmap.find((d) => d.isUnlocked && !d.isCompleted);
   const completedDays = roadmap.filter((d) => d.isCompleted).length;
   const totalDays = roadmap.length;
+  
+  // Get Nigeria time greeting
+  const greeting = getGreeting();
 
 
   // Get today's tasks
@@ -69,8 +75,8 @@ export function Dashboard() {
         className="flex items-center justify-between mb-6"
       >
         <div>
-          <p className="text-[#9CA3AF] text-sm">Good day,</p>
-          <h1 className="text-2xl font-bold">{user.nickname}!</h1>
+          <p className="text-[#9CA3AF] text-sm">{greeting},</p>
+          <h1 className="text-2xl font-bold">{nickname || user.nickname}!</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 bg-[#1A1A1E] px-3 py-2 rounded-full">
@@ -80,16 +86,8 @@ export function Dashboard() {
           <div className="w-10 h-10 bg-gradient-to-br from-[#6D28D9] to-[#CCFF00] rounded-full flex items-center justify-center text-xl">
             {personality.avatar}
           </div>
-          {/* Settings button to resume onboarding */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => resumeOnboarding()}
-            className="w-10 h-10 rounded-full bg-[#1A1A1E] hover:bg-[#2A2A2E] text-[#9CA3AF] hover:text-white"
-            title="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
+          {/* Settings Dropdown */}
+          <SettingsDropdown />
         </div>
       </motion.header>
 

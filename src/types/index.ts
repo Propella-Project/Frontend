@@ -1,5 +1,8 @@
 // PROPELLA - JAMB AI Tutor Types
 
+// Re-export API types
+export * from "./api.types";
+
 export type PersonalityType = 'rapper' | 'football' | 'storyteller' | 'coach' | 'mentor';
 export type LearningFormat = 'text' | 'audio' | 'video' | 'mixed';
 export type VoicePreference = 'male' | 'female';

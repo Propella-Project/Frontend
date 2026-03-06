@@ -1,0 +1,229 @@
+PROPELLA API ENDPOINTS
+======================
+
+Base URL: https://propella-api.vercel.app
+
+AUTHENTICATION
+--------------
+POST /auth/login/           - User login
+POST /auth/signup/          - User registration
+POST /auth/refresh/         - Refresh access token
+POST /auth/logout/          - User logout
+
+Headers required for authenticated endpoints:
+Authorization: Bearer <token>
+
+
+ONBOARDING
+----------
+POST /exam-profile/         - Save exam profile
+  Payload: {
+    "nickname": string,
+    "exam_date": string (YYYY-MM-DD),
+    "study_hours_per_day": number,
+    "ai_tutor_selected": string,
+    "ai_voice_enabled": boolean
+  }
+
+POST /user-subjects/        - Save user subjects (exactly 4 required)
+  Payload: {
+    "subjects": string[]
+  }
+
+
+DIAGNOSTIC QUIZ
+---------------
+GET /diagnostic-quiz/?subject=<subject>
+  Response: Array of {
+    "subject": string,
+    "question": string,
+    "options": string[],
+    "correct_answer": string,
+    "allocated_time": number
+  }
+
+POST /quiz-results/         - Submit diagnostic quiz results
+  Payload: {
+    "results": Array of {
+      "subject": string,
+      "question": string,
+      "timeUsed": number,
+      "userAnswer": string,
+      "correctAnswer": string
+    }
+  }
+
+
+DASHBOARD
+---------
+GET /dashboard/             - Get dashboard data
+  Response: {
+    "nickname": string,
+    "rank": string,
+    "level": number,
+    "points": number,
+    "average_score": number,
+    "completed_days": number,
+    "pending_tasks": number,
+    "streak": number
+  }
+
+GET /performance-graph/     - Get performance graph data
+  Response: Array of {
+    "date": string (YYYY-MM-DD),
+    "score": number
+  }
+
+GET /user-level/            - Get user level info
+  Response: {
+    "level": number,
+    "points": number,
+    "next_level_points": number,
+    "progress_percentage": number
+  }
+
+
+ROADMAP
+-------
+GET /roadmap/today/         - Get today's roadmap
+  Response: {
+    "notes": string,
+    "quiz": { "id": string, "title": string, "total_questions": number } | null,
+    "progress": number,
+    "tasks": Array of Task,
+    "generation_status": "loading" | "ready" | "error"
+  }
+
+GET /roadmap/day/{dayId}/   - Get specific day roadmap
+POST /roadmap/tasks/{taskId}/complete/  - Mark task as complete
+
+
+STREAK
+------
+GET /streak/                - Get current streak
+  Response: {
+    "current_streak": number,
+    "longest_streak": number,
+    "last_study_date": string,
+    "streak_multiplier": number
+  }
+
+POST /update-streak/        - Update streak (call after study session)
+
+
+AI TUTOR
+--------
+POST /ai-tutor/chat/        - Send message to AI tutor
+  Payload: {
+    "message": string,
+    "session_id": string (optional)
+  }
+  Response: {
+    "response": string,
+    "session_id": string,
+    "type": "text" | "explanation" | "song" | "flashcard" | "diagram",
+    "metadata": {
+      "suggested_topics": string[],
+      "follow_up_questions": string[]
+    }
+  }
+
+
+LEARNING
+--------
+GET /weak-topics/           - Get weak topics list
+  Response: Array of {
+    "id": string,
+    "subject": string,
+    "topic": string,
+    "weakness_score": number,
+    "recommended_action": string
+  }
+
+GET /assignments/           - Get assignments
+  Response: Array of Assignment
+
+POST /assignments/{id}/complete/  - Complete assignment
+
+
+PAYMENTS (Flutterwave)
+----------------------
+POST /payments/initiate/    - Initiate payment
+  Payload: {
+    "amount": number,
+    "currency": string (default: "NGN"),
+    "email": string,
+    "phone_number": string (optional),
+    "name": string
+  }
+  Response: {
+    "payment_link": string,
+    "transaction_ref": string
+  }
+
+POST /payments/verify/      - Verify payment
+  Payload: {
+    "transaction_ref": string
+  }
+  Response: {
+    "status": "success" | "failed" | "pending",
+    "transaction_ref": string,
+    "amount": number,
+    "payment_date": string
+  }
+
+
+SETTINGS
+--------
+PUT /profile/update/        - Update profile
+  Payload: {
+    "nickname": string (optional),
+    "ai_tutor_selected": string (optional),
+    "ai_voice_enabled": boolean (optional)
+  }
+
+GET /notifications/         - Get notifications
+  Response: Array of {
+    "id": string,
+    "title": string,
+    "message": string,
+    "type": "app_update" | "task_reminder" | "streak_alert" | "payment" | "general",
+    "is_read": boolean,
+    "created_at": string,
+    "action_url": string (optional)
+  }
+
+PATCH /notifications/{id}/read/  - Mark notification as read
+
+
+SWITCHING BETWEEN MOCK AND PRODUCTION
+=====================================
+
+To switch between mock and production endpoints:
+
+1. Open `src/config/endpoints.ts`
+
+2. Change the ACTIVE_ENDPOINTS export:
+   - For production: export const ACTIVE_ENDPOINTS = ENDPOINTS;
+   - For mock: export const ACTIVE_ENDPOINTS = MOCK_ENDPOINTS;
+
+3. Mock endpoints should be defined in the MOCK_ENDPOINTS object.
+
+
+ERROR HANDLING
+==============
+
+Standard HTTP status codes are used:
+200 - Success
+201 - Created
+400 - Bad Request
+401 - Unauthorized (token expired or invalid)
+403 - Forbidden
+404 - Not Found
+500 - Server Error
+
+Error response format:
+{
+  "message": string,
+  "errors": { [field]: string[] } (optional, for validation errors)
+}

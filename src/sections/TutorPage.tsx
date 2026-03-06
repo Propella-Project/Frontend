@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '@/store';
+import { useUserStore } from '@/state/user.store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,22 +16,65 @@ import {
   Zap,
   Lightbulb,
   MoreHorizontal,
+  Play,
+  Square,
 } from 'lucide-react';
 import { PERSONALITIES } from '@/types';
 import type { ChatMessage } from '@/types';
 import { toast } from 'sonner';
+import { useAIVoicePlayer } from '@/services/aiVoicePlayer';
 
 export function TutorPage() {
   const { user, chatMessages, addMessage, subjects, addAssignment } = useStore();
+  const { ai_voice_enabled } = useUserStore();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(ai_voice_enabled);
   const [showOptions, setShowOptions] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const voicePlayer = useAIVoicePlayer();
 
   if (!user) return null;
 
   const personality = PERSONALITIES[user.personality];
+
+  // Handle text-to-speech for a message
+  const handleSpeak = (message: ChatMessage) => {
+    if (!voicePlayer.isSupported()) {
+      toast.error("Text-to-speech is not supported in your browser");
+      return;
+    }
+
+    if (speakingMessageId === message.id) {
+      // Stop speaking
+      voicePlayer.stop();
+      setSpeakingMessageId(null);
+    } else {
+      // Start speaking
+      voicePlayer.stop();
+      setSpeakingMessageId(message.id);
+      
+      voicePlayer.speak(message.content, {
+        gender: user.voicePreference === 'male' ? 'male' : 'female',
+        rate: 0.9,
+        pitch: 1,
+        onEnd: () => setSpeakingMessageId(null),
+        onError: (error) => {
+          console.error('Speech error:', error);
+          setSpeakingMessageId(null);
+          toast.error("Failed to play audio");
+        },
+      });
+    }
+  };
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      voicePlayer.stop();
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,7 +101,7 @@ export function TutorPage() {
 
   const generateAIResponse = (userMessage: string): string => {
     const lowerMsg = userMessage.toLowerCase();
-    
+
     // Check for subject-related queries
     for (const subject of subjects) {
       if (lowerMsg.includes(subject.name.toLowerCase()) || lowerMsg.includes(subject.code.toLowerCase())) {
@@ -118,6 +162,18 @@ export function TutorPage() {
       };
       addMessage(aiResponse);
       setIsTyping(false);
+      
+      // Auto-play if voice mode is enabled
+      if (isVoiceMode && voicePlayer.isSupported()) {
+        setSpeakingMessageId(aiResponse.id);
+        voicePlayer.speak(aiResponse.content, {
+          gender: user.voicePreference === 'male' ? 'male' : 'female',
+          rate: 0.9,
+          pitch: 1,
+          onEnd: () => setSpeakingMessageId(null),
+          onError: () => setSpeakingMessageId(null),
+        });
+      }
     }, 1500);
   };
 
@@ -226,8 +282,16 @@ export function TutorPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsVoiceMode(!isVoiceMode)}
+            onClick={() => {
+              setIsVoiceMode(!isVoiceMode);
+              if (isVoiceMode) {
+                voicePlayer.stop();
+                setSpeakingMessageId(null);
+              }
+              toast.info(isVoiceMode ? 'Voice mode disabled' : 'Voice mode enabled');
+            }}
             className={isVoiceMode ? 'text-[#CCFF00]' : ''}
+            title={isVoiceMode ? 'Voice mode on' : 'Voice mode off'}
           >
             {isVoiceMode ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </Button>
@@ -261,6 +325,27 @@ export function TutorPage() {
                   {message.type === 'song' && <Music size={14} className="text-[#CCFF00]" />}
                   {message.type === 'flashcard' && <BookOpen size={14} className="text-[#3B82F6]" />}
                   {message.type === 'diagram' && <Image size={14} className="text-[#10B981]" />}
+                  
+                  {/* Text-to-Speech Button for AI Messages */}
+                  {voicePlayer.isSupported() && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-6 w-6 ml-2 ${
+                        speakingMessageId === message.id 
+                          ? 'text-[#CCFF00] animate-pulse' 
+                          : 'text-[#9CA3AF] hover:text-white'
+                      }`}
+                      onClick={() => handleSpeak(message)}
+                      title={speakingMessageId === message.id ? 'Stop audio' : 'Play audio'}
+                    >
+                      {speakingMessageId === message.id ? (
+                        <Square size={12} className="fill-current" />
+                      ) : (
+                        <Play size={12} className="fill-current" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -384,7 +469,7 @@ export function TutorPage() {
             Assign Work
           </Button>
         </div>
-        
+
         <div className="flex gap-2">
           <Input
             value={input}
@@ -401,7 +486,7 @@ export function TutorPage() {
             <Send size={20} />
           </Button>
         </div>
-      </div>
+        </div>
     </div>
   );
 }
