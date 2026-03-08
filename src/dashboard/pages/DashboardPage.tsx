@@ -16,7 +16,8 @@ import {
   Loader2
 } from "lucide-react";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { roadmapApi, type RoadmapDay } from "@/api/dashboard.api";
+import { roadmapApi } from "@/api/roadmap.api";
+import type { RoadmapDay, RoadmapTask, TodayRoadmapResponse } from "@/types/api.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ import { Link } from "react-router-dom";
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const [today, setToday] = useState<RoadmapDay | null>(null);
+  const [today, setToday] = useState<RoadmapDay | TodayRoadmapResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Fetch today's roadmap
@@ -47,7 +48,7 @@ export function DashboardPage() {
   // Calculate progress
   const getProgress = (day: RoadmapDay) => {
     if (!day.tasks.length) return 0;
-    const completed = day.tasks.filter((t) => t.is_completed).length;
+    const completed = day.tasks.filter((t: RoadmapTask) => t.is_completed).length;
     return Math.round((completed / day.tasks.length) * 100);
   };
 
@@ -63,14 +64,14 @@ export function DashboardPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-[#18A0FB]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#C4F135]" />
         </div>
       </DashboardLayout>
     );
   }
 
-  const progress = today ? getProgress(today) : 0;
-  const completedTasks = today?.tasks.filter((t) => t.is_completed).length || 0;
+  const progress = today ? getProgress(today as RoadmapDay) : 0;
+  const completedTasks = today?.tasks.filter((t: RoadmapTask) => t.is_completed).length || 0;
   const totalTasks = today?.tasks.length || 0;
 
   return (
@@ -96,12 +97,12 @@ export function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Today&apos;s Progress
                 </CardTitle>
-                <Target className="h-4 w-4 text-[#18A0FB]" />
+                <Target className="h-4 w-4 text-[#C4F135]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-white">{progress}%</div>
@@ -115,7 +116,7 @@ export function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Tasks Completed
@@ -134,7 +135,7 @@ export function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Study Streak
@@ -153,7 +154,7 @@ export function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Study Time
@@ -161,7 +162,7 @@ export function DashboardPage() {
                 <Clock className="h-4 w-4 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{today?.estimated_hours || 0}h</div>
+                <div className="text-2xl font-bold text-white">{(today as RoadmapDay)?.estimated_hours || 0}h</div>
                 <p className="text-xs text-gray-500 mt-1">estimated today</p>
               </CardContent>
             </Card>
@@ -175,13 +176,13 @@ export function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <Card className="bg-gradient-to-r from-[#18A0FB]/10 to-[#0B54A0]/10 border-[#18A0FB]/30">
+            <Card className="bg-gradient-to-r from-[#7C3AED]/10 to-[#4F2B8F]/10 border-[#7C3AED]/30">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-white">Today&apos;s Study Plan</CardTitle>
                     <CardDescription className="text-gray-400">
-                      Day {today.day_number} • {today.title}
+                      Day {(today as RoadmapDay).day_number} • {(today as RoadmapDay).title || 'Study Session'}
                     </CardDescription>
                   </div>
                   <Link to="/study-roadmap">
@@ -194,18 +195,18 @@ export function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {today.tasks.slice(0, 3).map((task) => (
+                  {today.tasks.slice(0, 3).map((task: RoadmapTask) => (
                     <div
                       key={task.id}
                       className={`flex items-center gap-3 p-3 rounded-lg ${
                         task.is_completed
                           ? "bg-green-500/10 border border-green-500/30"
-                          : "bg-[#0F0F11] border border-white/10"
+                          : "bg-[#0B0B0F] border border-white/10"
                       }`}
                     >
                       <div
                         className={`h-2 w-2 rounded-full ${
-                          task.is_completed ? "bg-green-500" : "bg-[#18A0FB]"
+                          task.is_completed ? "bg-green-500" : "bg-[#7C3AED]"
                         }`}
                       />
                       <span
@@ -239,7 +240,7 @@ export function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="bg-[#1A1A1D] border-white/10">
+          <Card className="bg-[#141419] border-white/10">
             <CardHeader>
               <CardTitle className="text-white">Quick Actions</CardTitle>
             </CardHeader>
@@ -248,16 +249,16 @@ export function DashboardPage() {
                 <Link to="/ai-tutor">
                   <Button
                     variant="outline"
-                    className="w-full h-auto py-4 border-white/10 hover:bg-[#18A0FB]/10 hover:border-[#18A0FB]/30 flex flex-col items-center gap-2"
+                    className="w-full h-auto py-4 border-white/10 hover:bg-[#C4F135]/10 hover:border-[#18A0FB]/30 flex flex-col items-center gap-2"
                   >
-                    <BookOpen className="h-6 w-6 text-[#18A0FB]" />
+                    <BookOpen className="h-6 w-6 text-[#C4F135]" />
                     <span className="text-white">Ask AI Tutor</span>
                   </Button>
                 </Link>
                 <Link to="/referrals">
                   <Button
                     variant="outline"
-                    className="w-full h-auto py-4 border-white/10 hover:bg-[#18A0FB]/10 hover:border-[#18A0FB]/30 flex flex-col items-center gap-2"
+                    className="w-full h-auto py-4 border-white/10 hover:bg-[#C4F135]/10 hover:border-[#18A0FB]/30 flex flex-col items-center gap-2"
                   >
                     <Trophy className="h-6 w-6 text-yellow-500" />
                     <span className="text-white">View Referrals</span>
@@ -266,7 +267,7 @@ export function DashboardPage() {
                 <Link to="/payments">
                   <Button
                     variant="outline"
-                    className="w-full h-auto py-4 border-white/10 hover:bg-[#18A0FB]/10 hover:border-[#18A0FB]/30 flex flex-col items-center gap-2"
+                    className="w-full h-auto py-4 border-white/10 hover:bg-[#C4F135]/10 hover:border-[#18A0FB]/30 flex flex-col items-center gap-2"
                   >
                     <Target className="h-6 w-6 text-green-500" />
                     <span className="text-white">Upgrade Plan</span>

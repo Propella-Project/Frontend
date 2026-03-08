@@ -82,16 +82,19 @@ export interface RoadmapTask {
   id: string;
   title: string;
   description: string;
-  type: "study" | "quiz" | "revision" | "flashcard" | "assignment";
+  type: "study" | "quiz" | "revision" | "flashcard" | "assignment" | "practice";
   status: "pending" | "in_progress" | "completed";
-  duration: number;
+  duration: number;  // in minutes
+  duration_minutes?: number;  // alias for duration
   subject_id: string;
   topic_id: string;
+  is_completed?: boolean;  // computed from status === "completed"
 }
 
 export interface RoadmapDay {
   id: string;
   day_number: number;
+  title?: string;  // optional title for the day
   date: string;
   notes: string;
   tasks: RoadmapTask[];
@@ -103,9 +106,13 @@ export interface RoadmapDay {
   progress: number;
   is_unlocked: boolean;
   is_completed: boolean;
+  estimated_hours?: number;  // estimated study hours for the day
 }
 
 export interface TodayRoadmapResponse {
+  id?: string;  // optional for compatibility with RoadmapDay
+  day_number?: number;  // optional for compatibility with RoadmapDay
+  date?: string;  // optional for compatibility with RoadmapDay
   notes: string;
   quiz: {
     id: string;
@@ -115,6 +122,8 @@ export interface TodayRoadmapResponse {
   progress: number;
   tasks: RoadmapTask[];
   generation_status: "loading" | "ready" | "error";
+  is_unlocked?: boolean;  // optional for compatibility with RoadmapDay
+  is_completed?: boolean;  // optional for compatibility with RoadmapDay
 }
 
 // Performance Types

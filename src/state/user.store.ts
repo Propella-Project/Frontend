@@ -94,8 +94,11 @@ export const useUserStore = create<UserState>()(
           ...initialState,
           isAuthenticated: false,
         });
+        // Clear both dashboard and landing page token names
         localStorage.removeItem("propella_token");
+        localStorage.removeItem("access_token");
         localStorage.removeItem("propella_refresh_token");
+        localStorage.removeItem("refresh_token");
       },
       
       // Referral actions

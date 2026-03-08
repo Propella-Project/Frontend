@@ -49,13 +49,13 @@ export function DashboardHeader(_props: DashboardHeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0F0F11]/95 backdrop-blur-md border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-[#0B0B0F]/95 backdrop-blur-md border-b border-white/10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <div className="flex items-center">
             <NavLink to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#18A0FB] to-[#0B54A0] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#4F2B8F] flex items-center justify-center">
                 <GraduationCap className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-white">Propella</span>
@@ -72,7 +72,7 @@ export function DashboardHeader(_props: DashboardHeaderProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 align="center" 
-                className="w-56 bg-[#1A1A1D] border-white/10 text-white"
+                className="w-56 bg-[#141419] border-white/10 text-white"
               >
                 <DropdownMenuLabel className="text-gray-400">Navigation</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
@@ -104,7 +104,7 @@ export function DashboardHeader(_props: DashboardHeaderProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 align="start" 
-                className="w-56 bg-[#1A1A1D] border-white/10 text-white"
+                className="w-56 bg-[#141419] border-white/10 text-white"
               >
                 <DropdownMenuLabel className="text-gray-400">Navigation</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
@@ -131,7 +131,7 @@ export function DashboardHeader(_props: DashboardHeaderProps) {
           {/* User Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors outline-none">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#18A0FB] to-[#0B54A0] flex items-center justify-center text-sm font-medium text-white">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F2B8F] flex items-center justify-center text-sm font-medium text-white">
                 {user?.nickname?.charAt(0).toUpperCase() ||
                   user?.username?.charAt(0).toUpperCase() ||
                   user?.email?.charAt(0).toUpperCase() ||
@@ -144,7 +144,7 @@ export function DashboardHeader(_props: DashboardHeaderProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent 
               align="end" 
-              className="w-56 bg-[#1A1A1D] border-white/10 text-white"
+              className="w-56 bg-[#141419] border-white/10 text-white"
             >
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium text-white">

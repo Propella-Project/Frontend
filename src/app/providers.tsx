@@ -23,6 +23,28 @@ const loadPersistedTutor = () => {
   return localStorage.getItem("aiTutor");
 };
 
+// Cookie helper for cross-subdomain token reading
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(";").shift() || null;
+  }
+  return null;
+};
+
+// Get auth token (checks cookies first for cross-subdomain, then localStorage)
+const getAuthToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  // Check cookies first (set by landing page with Domain=.propella.ng)
+  const cookieToken = getCookie("access_token") || getCookie("auth_token");
+  if (cookieToken) return cookieToken;
+  // Fallback to localStorage
+  return localStorage.getItem("propella_token") || 
+         localStorage.getItem("access_token");
+};
+
 interface ProvidersProps {
   children: ReactNode;
 }
@@ -113,7 +135,8 @@ function AppInitializer({ children }: { children: ReactNode }) {
         updateProfile({ ai_tutor_selected: savedTutor });
       }
       
-      const token = localStorage.getItem("propella_token");
+      // Check for token (cookies first for cross-subdomain, then localStorage)
+      const token = getAuthToken();
       
       if (!token) {
         setAuthenticated(false);
@@ -125,14 +148,14 @@ function AppInitializer({ children }: { children: ReactNode }) {
 
       try {
         // Fetch dashboard data to initialize user state
-        const dashboardData = await dashboardApi.user.getMe();
+        const dashboardData = await dashboardApi.getDashboard();
         
         setUser({
-          nickname: dashboardData.nickname || dashboardData.username,
-          rank: dashboardData.rank || "Rookie",
-          level: dashboardData.level || 1,
-          points: dashboardData.points || dashboardData.referral_points || 0,
-          streak: dashboardData.streak || 0,
+          nickname: dashboardData.nickname,
+          rank: dashboardData.rank,
+          level: dashboardData.level,
+          points: dashboardData.points,
+          streak: dashboardData.streak,
         });
       } catch (error) {
         console.error("[AppInitializer] Dashboard fetch failed:", error);

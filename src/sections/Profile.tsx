@@ -46,12 +46,12 @@ export function Profile({ onBack }: ProfileProps) {
     fetchStats();
   }, []);
 
-  const referralCode = referralStats?.user.referral_code || "";
+  const referralCode = referralStats?.user?.referral_code || "";
   const referralLink = referralCode 
     ? buildReferralLink(referralCode, nickname || undefined)
     : "";
-  const totalReferrals = referralStats?.user.total_referrals || 0;
-  const totalPoints = referralStats?.user.referral_points || 0;
+  const totalReferrals = referralStats?.user?.total_referrals || 0;
+  const totalPoints = referralStats?.user?.referral_points || 0;
 
   const handleCopyCode = async () => {
     if (!referralCode) return;
@@ -246,7 +246,7 @@ export function Profile({ onBack }: ProfileProps) {
       </motion.div>
 
       {/* Referral List */}
-      {referralStats && referralStats.referrals.length > 0 && (
+      {referralStats?.referrals && referralStats.referrals.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

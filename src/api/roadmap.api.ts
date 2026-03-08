@@ -121,6 +121,14 @@ export const roadmapApi = {
     localStorage.removeItem(ROADMAP_CACHE_KEY);
     localStorage.removeItem(ROADMAP_GENERATION_STATUS);
   },
+  
+  // Aliases for compatibility with dashboard pages
+  getToday: async (): Promise<TodayRoadmapResponse> => {
+    return roadmapApi.getTodayRoadmap();
+  },
+  getFullRoadmap: async (): Promise<{ days: RoadmapDay[] }> => {
+    return roadmapApi.generateRoadmap();
+  },
 };
 
 // Extended cached roadmap type with days

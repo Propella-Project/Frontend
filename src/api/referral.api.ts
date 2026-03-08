@@ -17,6 +17,9 @@ export interface ReferralStats {
     date: string;
     points_earned: number;
   }>;
+  // Computed properties for convenience
+  total_points?: number;  // alias for user.referral_points
+  total_referrals?: number;  // alias for user.total_referrals
 }
 
 export interface LeaderboardEntry {

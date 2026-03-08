@@ -1,23 +1,15 @@
 /**
- * Auth Context - Cookie & Token Based Authentication
+ * Auth Context - Simple Cookie-Based Authentication
  * 
- * This context manages authentication state for the Propella Dashboard.
- * Supports both cookie-based (primary) and localStorage token-based (fallback) auth.
- * 
- * Backend API: https://api.propella.ng
- * Landing Page: https://propella.ng
+ * Just uses cookies set by landing page. No blocking auth checks.
+ * Shows notification if API calls fail due to auth.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ENV } from "@/config/env";
+import { toast } from "sonner";
 
-// Token storage keys (must match landing page)
-const TOKEN_KEY = "access_token";        // Landing page uses "access_token"
-const REFRESH_TOKEN_KEY = "refresh_token"; // Landing page uses "refresh_token"
-const AUTH_TOKEN_KEY = "auth_token";       // Landing page also sets "auth_token"
-const USER_ID_KEY = "propella_user_id";
-
-// User type from backend
+// User type
 export interface User {
   id: string;
   email: string;
@@ -39,261 +31,77 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  error: string | null;
-  token: string | null;
-  checkAuth: () => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  getAuthHeaders: () => Record<string, string>;
 }
 
-// Create context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Auth provider props
 interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-// API base URL
 const API_BASE_URL = ENV.API_BASE_URL.replace(/\/api$/, '');
 
-// Get token from localStorage (checks multiple keys for compatibility)
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  // Check landing page token keys first
-  return localStorage.getItem(TOKEN_KEY) || 
-         localStorage.getItem(AUTH_TOKEN_KEY) ||
-         localStorage.getItem("propella_token");
-}
-
-// Get refresh token from localStorage
-function getStoredRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-/**
- * Auth Provider Component
- */
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
-  /**
-   * Get auth headers for API calls
-   */
-  const getAuthHeaders = useCallback((): Record<string, string> => {
-    const currentToken = token || getStoredToken();
-    if (currentToken) {
-      return {
-        "Authorization": `Bearer ${currentToken}`,
-        "Content-Type": "application/json",
-      };
-    }
-    return {
-      "Content-Type": "application/json",
-    };
-  }, [token]);
-
-  /**
-   * Refresh access token using refresh token
-   */
-  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) return null;
-
+  // Try to fetch user data, but don't block if it fails
+  const refreshUser = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/accounts/token/refresh/`, {
-        method: "POST",
+      const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
+        method: "GET",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh: refreshToken }),
       });
 
-      if (!response.ok) return null;
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
 
-      const data = await response.json();
-      if (data.access) {
-        localStorage.setItem(TOKEN_KEY, data.access);
-        setToken(data.access);
-        return data.access;
+      } else if (response.status === 401) {
+        // Not authenticated - show toast but don't block
+        toast.error("Session expired. Some features may not work.");
+        setUser({ id: "guest", email: "guest@propella.ng" });
       }
     } catch (err) {
-      console.error("[Auth] Token refresh failed:", err);
+      // API error - silently fail, user can still use dashboard
+      console.log("[Auth] Could not fetch user data:", err);
     }
-    return null;
   }, []);
 
-  /**
-   * Check if user is authenticated
-   * Tries cookie auth first, falls back to token auth
-   */
-  const checkAuth = useCallback(async (): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Try cookie-based auth first (primary method)
-      const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
-        method: "GET",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        setIsAuthenticated(true);
-        
-        // Also sync localStorage for consistency
-        if (userData.id) {
-          localStorage.setItem(USER_ID_KEY, userData.id);
-        }
-        
-        return true;
-      }
-
-      // If cookie auth fails (401), try token refresh
-      if (response.status === 401) {
-        const newToken = await refreshAccessToken();
-        
-        if (newToken) {
-          // Retry with new token
-          const retryResponse = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
-            method: "GET",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${newToken}`,
-            },
-          });
-
-          if (retryResponse.ok) {
-            const userData = await retryResponse.json();
-            setUser(userData);
-            setIsAuthenticated(true);
-            setToken(newToken);
-            return true;
-          }
-        }
-      }
-
-      // Auth failed
-      setUser(null);
-      setIsAuthenticated(false);
-      setToken(null);
-      return false;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Authentication check failed";
-      setError(errorMessage);
-      setUser(null);
-      setIsAuthenticated(false);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [refreshAccessToken]);
-
-  /**
-   * Refresh user data from backend
-   */
-  const refreshUser = useCallback(async (): Promise<void> => {
-    const currentToken = token || getStoredToken();
-    
-    try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      
-      if (currentToken) {
-        headers["Authorization"] = `Bearer ${currentToken}`;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
-        method: "GET",
-        credentials: "include",
-        headers,
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      }
-    } catch (err) {
-      console.error("[Auth] Failed to refresh user:", err);
-    }
-  }, [token]);
-
-  /**
-   * Logout user
-   * Clears both cookies and localStorage
-   */
+  // Logout
   const logout = useCallback(async (): Promise<void> => {
     try {
-      // Call logout endpoint to clear server-side session
       await fetch(`${API_BASE_URL}/api/accounts/logout/`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
       });
     } catch (err) {
-      console.error("[Auth] Logout API call failed:", err);
+      console.error("[Auth] Logout failed:", err);
     } finally {
-      // Clear local state
       setUser(null);
-      setIsAuthenticated(false);
-      setToken(null);
-      
-      // Clear localStorage (clear all possible token keys)
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      localStorage.removeItem("propella_token");
-      localStorage.removeItem("propella_refresh_token");
-      localStorage.removeItem(USER_ID_KEY);
-      
-      // Redirect to landing page
       window.location.href = ENV.LANDING_PAGE_URL;
     }
   }, []);
 
-  // Check auth on mount
+  // Fetch user on mount (non-blocking)
   useEffect(() => {
-    // Check if we have a token in localStorage
-    const storedToken = getStoredToken();
-    if (storedToken) {
-      setToken(storedToken);
-    }
-    
-    checkAuth();
-  }, [checkAuth]);
-
-  // Note: No automatic redirect to login
-  // The landing page handles authentication flow
-  // Dashboard just checks auth state and shows loading if not authenticated
+    refreshUser().finally(() => setIsLoading(false));
+  }, [refreshUser]);
 
   const value: AuthContextType = {
     user,
     isLoading,
-    isAuthenticated,
-    error,
-    token,
-    checkAuth,
+    isAuthenticated: true, // Always allow access
     logout,
     refreshUser,
-    getAuthHeaders,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * Hook to use auth context
- */
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {

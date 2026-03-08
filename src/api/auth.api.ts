@@ -5,6 +5,28 @@ import apiClient from "./client";
 import { ENDPOINTS } from "@/config/endpoints";
 import { getReferralData, clearReferralData } from "@/utils/referral";
 
+// Cookie helper for cross-subdomain token reading
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(";").shift() || null;
+  }
+  return null;
+};
+
+// Get auth token (checks cookies first for cross-subdomain, then localStorage)
+const getAuthTokenFromCookies = (): string | null => {
+  if (typeof window === "undefined") return null;
+  // Check cookies first (set by landing page with Domain=.propella.ng)
+  const cookieToken = getCookie("access_token") || getCookie("auth_token");
+  if (cookieToken) return cookieToken;
+  // Fallback to localStorage
+  return localStorage.getItem("propella_token") || 
+         localStorage.getItem("access_token");
+};
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -148,34 +170,43 @@ export const authApi = {
     return response.data;
   },
 
-  // Logout (client-side only for JWT)
+  // Logout (client-side only for JWT) - clears both token names
   logout: async (): Promise<void> => {
     localStorage.removeItem("propella_token");
+    localStorage.removeItem("access_token");
     localStorage.removeItem("propella_refresh_token");
+    localStorage.removeItem("refresh_token");
   },
 
-  // Helper to set token after login
+  // Helper to set token after login (sets both names for compatibility)
   setToken: (token: string): void => {
     localStorage.setItem("propella_token", token);
+    localStorage.setItem("access_token", token);
   },
 
-  // Helper to set refresh token
+  // Helper to set refresh token (sets both names for compatibility)
   setRefreshToken: (token: string): void => {
     localStorage.setItem("propella_refresh_token", token);
+    localStorage.setItem("refresh_token", token);
   },
 
-  // Helper to get token
+  // Helper to get token (checks cookies first for cross-subdomain, then localStorage)
   getToken: (): string | null => {
-    return localStorage.getItem("propella_token");
+    return getAuthTokenFromCookies();
   },
 
-  // Helper to get refresh token
+  // Helper to get refresh token (checks cookies first, then localStorage)
   getRefreshToken: (): string | null => {
-    return localStorage.getItem("propella_refresh_token");
+    // Check cookies first (set by landing page with Domain=.propella.ng)
+    const cookieToken = getCookie("refresh_token");
+    if (cookieToken) return cookieToken;
+    // Fallback to localStorage
+    return localStorage.getItem("propella_refresh_token") ||
+           localStorage.getItem("refresh_token");
   },
 
-  // Helper to check if user is authenticated
+  // Helper to check if user is authenticated (checks cookies first, then localStorage)
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem("propella_token");
+    return !!getAuthTokenFromCookies();
   },
 };

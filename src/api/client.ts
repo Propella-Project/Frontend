@@ -7,10 +7,22 @@ import type {
 } from "axios";
 import { ENV } from "@/config/env";
 
-// Token storage keys (must match landing page)
-const TOKEN_KEY = "access_token";        // Landing page uses "access_token"
-const REFRESH_TOKEN_KEY = "refresh_token"; // Landing page uses "refresh_token"
-const AUTH_TOKEN_KEY = "auth_token";       // Landing page also sets "auth_token"
+// Cookie helper for cross-subdomain token reading
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(";").shift() || null;
+  }
+  return null;
+}
+
+// Token storage keys (support both dashboard and landing page token names)
+const TOKEN_KEY = "propella_token";
+const TOKEN_KEY_ALT = "access_token";  // Landing page uses this
+const REFRESH_TOKEN_KEY = "propella_refresh_token";
+const REFRESH_TOKEN_KEY_ALT = "refresh_token";  // Landing page uses this
 const USER_ID_KEY = "propella_user_id";
 
 // Create Axios instance
@@ -38,42 +50,50 @@ function onTokenRefreshed(newToken: string) {
   refreshSubscribers = [];
 }
 
-// Get stored token (checks multiple keys for compatibility)
+// Get stored token (checks cookies first for cross-subdomain, then localStorage)
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  // Check landing page token keys first
+  // Check cookies first (set by landing page with Domain=.propella.ng)
+  const cookieToken = getCookie("access_token") || getCookie("auth_token");
+  if (cookieToken) return cookieToken;
+  // Fallback to localStorage
   return localStorage.getItem(TOKEN_KEY) || 
-         localStorage.getItem(AUTH_TOKEN_KEY) ||
-         localStorage.getItem("propella_token");
+         localStorage.getItem(TOKEN_KEY_ALT);
 }
 
-// Get stored refresh token (checks multiple keys for compatibility)
+// Get stored refresh token (checks cookies first for cross-subdomain, then localStorage)
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY) || 
-         localStorage.getItem("propella_refresh_token");
+  // Check cookies first (set by landing page with Domain=.propella.ng)
+  const cookieToken = getCookie("refresh_token");
+  if (cookieToken) return cookieToken;
+  // Fallback to localStorage
+  return localStorage.getItem(REFRESH_TOKEN_KEY) ||
+         localStorage.getItem(REFRESH_TOKEN_KEY_ALT);
 }
 
-// Set tokens
+// Set tokens (sets both names for compatibility)
 export function setTokens(access: string, refresh?: string, userId?: string): void {
   if (typeof window === "undefined") return;
+  // Set both token names for cross-subdomain compatibility
   localStorage.setItem(TOKEN_KEY, access);
+  localStorage.setItem(TOKEN_KEY_ALT, access);
   if (refresh) {
     localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+    localStorage.setItem(REFRESH_TOKEN_KEY_ALT, refresh);
   }
   if (userId) {
     localStorage.setItem(USER_ID_KEY, userId);
   }
 }
 
-// Clear tokens (logout) - clears all possible keys
+// Clear tokens (logout) - clears both token names
 export function clearTokens(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY_ALT);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem("propella_token");
-  localStorage.removeItem("propella_refresh_token");
+  localStorage.removeItem(REFRESH_TOKEN_KEY_ALT);
   localStorage.removeItem(USER_ID_KEY);
 }
 
@@ -200,8 +220,18 @@ function handleAuthFailure(): void {
   // Dispatch event for components to listen to
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("propella:auth:failure"));
-    // Note: AuthContext handles redirect to landing page
-    // This prevents redirect loops between landing page and dashboard
+    
+    // Only redirect if we're not already on the login page
+    const currentPath = window.location.pathname;
+    const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password"];
+    
+    if (!publicPaths.some((path) => currentPath.includes(path))) {
+      // Store the current path to redirect back after login
+      sessionStorage.setItem("propella_redirect_after_login", currentPath);
+      
+      // Redirect to login
+      window.location.href = "/login";
+    }
   }
 }
 

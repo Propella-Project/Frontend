@@ -3,11 +3,22 @@ import { ENDPOINTS } from "@/config/endpoints";
 import { ENV } from "@/config/env";
 import { getToken } from "./client";
 
+// Raw plan from backend API
+export interface RawSubscriptionPlan {
+  id: number;
+  name: string;
+  price: string;  // Backend returns as string, e.g., "1500.00"
+  duration_days: number;
+  description: string;
+  created_at: string;
+}
+
+// Frontend-friendly plan format
 export interface SubscriptionPlan {
   id: string;
   name: string;
   description: string;
-  amount: number;
+  amount: number;  // Converted from price string
   currency: string;
   duration_days: number;
   features: string[];
@@ -55,8 +66,11 @@ export interface SubscriptionResponse {
 
 export interface UserSubscriptionStatus {
   has_active_subscription: boolean;
+  is_active?: boolean;  // alias for has_active_subscription
   subscription: SubscriptionResponse | null;
+  plan?: string;  // plan name/id for display
   days_remaining: number;
+  expires_at?: string;  // expiration date for display
 }
 
 export const subscriptionApi = {
@@ -70,8 +84,25 @@ export const subscriptionApi = {
     }
     
     console.log("[Subscription] Fetching plans from:", ENDPOINTS.subscriptions.plans);
-    const response = await apiClient.get(ENDPOINTS.subscriptions.plans);
-    return response.data;
+    const response = await apiClient.get<RawSubscriptionPlan[]>(ENDPOINTS.subscriptions.plans);
+    
+    // Transform raw backend response to frontend format
+    return response.data.map((plan) => ({
+      id: String(plan.id),
+      name: plan.name,
+      description: plan.description,
+      amount: parseFloat(plan.price),  // Convert price string to number
+      currency: "NGN",  // Default currency
+      duration_days: plan.duration_days,
+      features: [
+        "Personalized AI-generated roadmap",
+        "Unlimited AI tutor chat sessions",
+        "Detailed performance analytics",
+        "Weak topics identification",
+        "Daily streak tracking",
+        "Practice quizzes and past questions",
+      ],
+    }));
   },
 
   // Initiate subscription - returns Flutterwave payment link (requires auth)
@@ -82,8 +113,8 @@ export const subscriptionApi = {
     console.log("[Subscription] Endpoint:", ENDPOINTS.subscriptions.subscribe);
     console.log("[Subscription] Full URL:", `${ENV.API_BASE_URL}${ENDPOINTS.subscriptions.subscribe}`);
     
-    // Check if user is authenticated
-    const token = localStorage.getItem("propella_token");
+    // Check if user is authenticated (supports both dashboard and landing page tokens)
+    const token = getToken();
     if (!token) {
       console.error("[Subscription] No authentication token found");
       throw new Error("Please log in to subscribe");
@@ -112,17 +143,20 @@ export const subscriptionApi = {
     }
   },
 
-  // Verify subscription after Flutterwave payment (requires transaction_id query param)
+  // Verify subscription after Flutterwave payment (requires transaction_id in body)
   verifySubscription: async (
     transactionId: string,
   ): Promise<VerifySubscriptionResponse> => {
-    const response = await apiClient.get(
-      `${ENDPOINTS.subscriptions.verify}?transaction_id=${encodeURIComponent(transactionId)}`,
+    const response = await apiClient.post(
+      ENDPOINTS.subscriptions.verify,
+      { transaction_id: transactionId },
     );
     return response.data;
   },
 
-  // Get current user's subscription status from the subscribe endpoint
+  // Get current user's subscription status
+  // Note: Backend doesn't have a dedicated status endpoint yet
+  // This returns fallback data - the app should check local state or payment history
   getSubscriptionStatus: async (): Promise<UserSubscriptionStatus> => {
     // Check if user is authenticated
     const token = getToken();
@@ -135,19 +169,15 @@ export const subscriptionApi = {
       };
     }
     
-    try {
-      // Use the subscribe endpoint with GET to check subscription status
-      const response = await apiClient.get(ENDPOINTS.subscriptions.subscribe);
-      return response.data;
-    } catch (error) {
-      // If endpoint doesn't exist, return fallback
-      console.warn("Subscription status endpoint not available");
-      return {
-        has_active_subscription: false,
-        subscription: null,
-        days_remaining: 0,
-      };
-    }
+    // For now, return fallback data
+    // In the future, this could check localStorage for payment confirmation
+    // or call a dedicated backend endpoint when available
+    console.log("[Subscription] Using fallback status (no backend endpoint)");
+    return {
+      has_active_subscription: false,
+      subscription: null,
+      days_remaining: 0,
+    };
   },
 
   // Cancel subscription

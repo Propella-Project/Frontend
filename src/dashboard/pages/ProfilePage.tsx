@@ -6,9 +6,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { UserCircle, Mail, Phone, Calendar, Edit2, Save, Loader2 } from "lucide-react";
+import { UserCircle, Mail, Calendar, Edit2, Save, Loader2 } from "lucide-react";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { userApi } from "@/api/dashboard.api";
+import { settingsApi } from "@/api/settings.api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,6 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     nickname: user?.nickname || "",
-    first_name: user?.first_name || "",
-    last_name: user?.last_name || "",
-    phone_number: user?.phone_number || "",
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,7 +32,7 @@ export function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await userApi.updateProfile(formData);
+      await settingsApi.updateProfile(formData);
       await refreshUser();
       setIsEditing(false);
       toast.success("Profile updated successfully");
@@ -50,9 +47,6 @@ export function ProfilePage() {
   const handleCancel = () => {
     setFormData({
       nickname: user?.nickname || "",
-      first_name: user?.first_name || "",
-      last_name: user?.last_name || "",
-      phone_number: user?.phone_number || "",
     });
     setIsEditing(false);
   };
@@ -137,35 +131,6 @@ export function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="first_name" className="text-gray-300">
-                      First Name
-                    </Label>
-                    <Input
-                      id="first_name"
-                      name="first_name"
-                      value={formData.first_name}
-                      onChange={handleInputChange}
-                      placeholder="Enter your first name"
-                      className="bg-[#0F0F11] border-white/10 text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="last_name" className="text-gray-300">
-                      Last Name
-                    </Label>
-                    <Input
-                      id="last_name"
-                      name="last_name"
-                      value={formData.last_name}
-                      onChange={handleInputChange}
-                      placeholder="Enter your last name"
-                      className="bg-[#0F0F11] border-white/10 text-white"
-                    />
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="nickname" className="text-gray-300">
                     Nickname
@@ -176,20 +141,6 @@ export function ProfilePage() {
                     value={formData.nickname}
                     onChange={handleInputChange}
                     placeholder="Choose a nickname"
-                    className="bg-[#0F0F11] border-white/10 text-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number" className="text-gray-300">
-                    Phone Number
-                  </Label>
-                  <Input
-                    id="phone_number"
-                    name="phone_number"
-                    value={formData.phone_number}
-                    onChange={handleInputChange}
-                    placeholder="Enter your phone number"
                     className="bg-[#0F0F11] border-white/10 text-white"
                   />
                 </div>
@@ -249,14 +200,6 @@ export function ProfilePage() {
                   <div>
                     <p className="text-sm text-gray-500">Email</p>
                     <p className="text-white">{user.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-[#0F0F11]">
-                  <Phone className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="text-white">{user.phone_number || "Not set"}</p>
                   </div>
                 </div>
 

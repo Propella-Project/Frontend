@@ -56,11 +56,11 @@ export const ENDPOINTS = {
   // Subscriptions
   subscriptions: {
     // GET - Get available subscription plans (requires auth)
-    plans: `/accounts/plans`,
+    plans: `/accounts/plans/`,
     // POST - Subscribe to a plan (requires auth, plan_id in body)
-    subscribe: `/accounts/subscribe`,
-    // GET - Verify subscription after Flutterwave payment (requires transaction_id)
-    verify: `/accounts/verify-subscription`,
+    subscribe: `/accounts/subscribe/`,
+    // POST - Verify subscription after Flutterwave payment
+    verify: `/accounts/verify-subscription/`,
   },
 
   // Onboarding (legacy - may need updates based on backend)

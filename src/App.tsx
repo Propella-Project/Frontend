@@ -1,58 +1,67 @@
-/**
- * Propella Dashboard App
- * 
- * Authenticated dashboard application for Propella.
- * Hosted at: https://dashboard.propella.ng
- * API: https://api.propella.ng
- * 
- * This app requires authentication. It reads the token from localStorage
- * (set by the landing page at propella.ng) and uses it for API calls.
- */
-
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { useStore } from "@/store";
+import { OnboardingFlow } from "@/sections/OnboardingFlow";
+import { Dashboard } from "@/sections/Dashboard";
+import { RoadmapPage } from "@/sections/RoadmapPage";
+import { TutorPage } from "@/sections/TutorPage";
+import { TasksPage } from "@/sections/TasksPage";
+import { QuizInterface } from "@/sections/QuizInterface";
+import { QuestionCatalog } from "@/sections/QuestionCatalog";
+import { Profile } from "@/sections/Profile";
+import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
-
-// Dashboard Pages
-import {
-  DashboardPage,
-  ReferralsPage,
-  PaymentsPage,
-  ProfilePage,
-  StudyRoadmapPage,
-  AiTutorPage,
-} from "@/dashboard";
+import { PaymentCallback } from "@/features/payment/PaymentCallback";
+import { AnimatePresence, motion } from "framer-motion";
 
 function App() {
+  const { currentPage, isOnboardingComplete, setCurrentPage } = useStore();
+  
+  // Check if we're handling a payment callback
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPaymentCallback = urlParams.has("transaction_id") || urlParams.has("tx_ref");
+
+  // Show payment callback handler
+  if (isPaymentCallback) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] text-[#F3F4F6]">
+        <PaymentCallback onComplete={() => setCurrentPage("dashboard")} />
+        <Toaster />
+      </div>
+    );
+  }
+
+  // Show onboarding if not complete
+  if (!isOnboardingComplete) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] text-[#F3F4F6]">
+        <OnboardingFlow />
+        <Toaster />
+      </div>
+    );
+  }
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Dashboard Routes - All require authentication via AuthProvider */}
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/referrals" element={<ReferralsPage />} />
-          <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/study-roadmap" element={<StudyRoadmapPage />} />
-          <Route path="/ai-tutor" element={<AiTutorPage />} />
-          
-          {/* Catch all - redirect to dashboard */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-      
-      {/* Toast notifications */}
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#1A1A1D',
-            color: '#F3F4F6',
-            border: '1px solid rgba(255,255,255,0.1)',
-          },
-        }}
-      />
-    </AuthProvider>
+    <div className="min-h-screen bg-[#0F0F11] text-[#F3F4F6] pb-20">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentPage}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          {currentPage === "dashboard" && <Dashboard />}
+          {currentPage === "roadmap" && <RoadmapPage />}
+          {currentPage === "tutor" && <TutorPage />}
+          {currentPage === "tasks" && <TasksPage />}
+          {currentPage === "quiz" && <QuizInterface />}
+          {currentPage === "catalog" && <QuestionCatalog />}
+          {currentPage === "profile" && <Profile onBack={() => useStore.getState().setCurrentPage("dashboard")} />}
+        </motion.div>
+      </AnimatePresence>
+
+      {currentPage !== "quiz" && <BottomNav />}
+      <Toaster />
+    </div>
   );
 }
 

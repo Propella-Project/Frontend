@@ -9,7 +9,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CreditCard, Check, Sparkles, Loader2 } from "lucide-react";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { paymentsApi, type PaymentPlan, type SubscriptionStatus } from "@/api/dashboard.api";
+import { subscriptionApi } from "@/api/subscription.api";
+import type { SubscriptionPlan, UserSubscriptionStatus } from "@/api/subscription.api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,8 @@ import { toast } from "sonner";
 
 export function PaymentsPage() {
   const { user } = useAuth();
-  const [plans, setPlans] = useState<PaymentPlan[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscription, setSubscription] = useState<UserSubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
@@ -28,8 +29,8 @@ export function PaymentsPage() {
     const fetchData = async () => {
       try {
         const [plansData, subscriptionData] = await Promise.all([
-          paymentsApi.getPlans().catch(() => []),
-          paymentsApi.getSubscriptionStatus().catch(() => null),
+          subscriptionApi.getPlans().catch(() => []),
+          subscriptionApi.getSubscriptionStatus().catch(() => null),
         ]);
         setPlans(plansData);
         setSubscription(subscriptionData);
@@ -45,7 +46,7 @@ export function PaymentsPage() {
   }, []);
 
   // Initiate payment
-  const initiatePayment = async (plan: PaymentPlan) => {
+  const initiatePayment = async (plan: SubscriptionPlan) => {
     if (!user?.id) {
       toast.error("User not found");
       return;
@@ -55,17 +56,14 @@ export function PaymentsPage() {
 
     try {
       // Use the backend payment initialization endpoint
-      const response = await paymentsApi.initiate({
-        plan: plan.id,
-        user_id: user.id,
-        amount: plan.price,
-        currency: plan.currency || "NGN",
-        callback_url: `${window.location.origin}/payment-callback`,
+      const response = await subscriptionApi.subscribe({
+        plan_id: plan.id,
+        payment_method: "flutterwave",
       });
 
-      if (response.data?.link) {
+      if (response.payment_link) {
         // Redirect to payment gateway
-        window.location.href = response.data.link;
+        window.location.href = response.payment_link;
       } else {
         toast.error("Payment initialization failed");
       }
@@ -132,7 +130,7 @@ export function PaymentsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-400">
-                  Expires in {subscription.days_remaining} days ({new Date(subscription.expires_at).toLocaleDateString()})
+                  Expires in {subscription.days_remaining} days {subscription.expires_at ? `(${new Date(subscription.expires_at).toLocaleDateString()})` : ''}
                 </p>
               </CardContent>
             </Card>
@@ -172,12 +170,12 @@ export function PaymentsPage() {
                   <CardContent className="flex-1">
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-white">
-                        {formatPrice(plan.price, plan.currency)}
+                        {formatPrice(plan.amount, plan.currency)}
                       </span>
                       <span className="text-gray-500">/{plan.duration_days} days</span>
                     </div>
                     <ul className="space-y-2">
-                      {plan.features.map((feature, idx) => (
+                      {plan.features.map((feature: string, idx: number) => (
                         <li key={idx} className="flex items-center gap-2 text-sm text-gray-300">
                           <Check className="h-4 w-4 text-green-500 shrink-0" />
                           {feature}

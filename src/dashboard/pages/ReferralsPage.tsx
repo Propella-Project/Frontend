@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Users, Trophy, Copy, Check, Share2, Gift } from "lucide-react";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { referralsApi, type ReferralStats, type LeaderboardEntry } from "@/api/dashboard.api";
+import { referralApi, type ReferralStats, type LeaderboardEntry } from "@/api/referral.api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,8 @@ export function ReferralsPage() {
     const fetchData = async () => {
       try {
         const [statsData, leaderboardData] = await Promise.all([
-          referralsApi.getStats(),
-          referralsApi.getLeaderboard().then(res => res.leaderboard).catch(() => []),
+          referralApi.getReferralStats(),
+          referralApi.getLeaderboard().then((res: { leaderboard: LeaderboardEntry[] }) => res.leaderboard).catch(() => []),
         ]);
         setStats(statsData);
         setLeaderboard(leaderboardData);
@@ -115,12 +115,12 @@ export function ReferralsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Total Referrals
                 </CardTitle>
-                <Users className="h-4 w-4 text-[#18A0FB]" />
+                <Users className="h-4 w-4 text-[#C4F135]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-white">{totalReferrals}</div>
@@ -136,7 +136,7 @@ export function ReferralsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Total Points
@@ -157,7 +157,7 @@ export function ReferralsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">
                   Estimated Earnings
@@ -182,7 +182,7 @@ export function ReferralsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="bg-[#1A1A1D] border-white/10">
+          <Card className="bg-[#141419] border-white/10">
             <CardHeader>
               <CardTitle className="text-white">Your Referral Link</CardTitle>
               <CardDescription className="text-gray-400">
@@ -191,7 +191,7 @@ export function ReferralsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <div className="flex-1 bg-[#0F0F11] border border-white/10 rounded-lg px-4 py-3 text-sm text-gray-300 truncate">
+                <div className="flex-1 bg-[#0B0B0F] border border-white/10 rounded-lg px-4 py-3 text-sm text-gray-300 truncate">
                   {referralLink || "Generating link..."}
                 </div>
                 <Button
@@ -209,7 +209,7 @@ export function ReferralsPage() {
                 <Button
                   onClick={shareReferralLink}
                   disabled={!referralLink}
-                  className="bg-[#18A0FB] hover:bg-[#0B54A0]"
+                  className="bg-[#7C3AED] hover:bg-[#5B21B6]"
                 >
                   <Share2 className="h-4 w-4 mr-2" />
                   Share
@@ -229,7 +229,7 @@ export function ReferralsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader>
                 <CardTitle className="text-white">Referred Users</CardTitle>
                 <CardDescription className="text-gray-400">
@@ -238,16 +238,16 @@ export function ReferralsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {stats.referrals.map((referral, index) => (
+                  {stats.referrals.map((referral: { id: string; nickname: string; date: string; points_earned: number }, index: number) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-3 rounded-lg bg-[#0F0F11] border border-white/5"
+                      className="flex items-center justify-between p-3 rounded-lg bg-[#0B0B0F] border border-white/5"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#18A0FB] to-[#0B54A0] flex items-center justify-center text-sm font-medium text-white">
-                          {referral.referred?.charAt(0).toUpperCase() || "?"}
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F2B8F] flex items-center justify-center text-sm font-medium text-white">
+                          {referral.nickname?.charAt(0).toUpperCase() || "?"}
                         </div>
-                        <span className="text-sm text-white">{referral.referred}</span>
+                        <span className="text-sm text-white">{referral.nickname}</span>
                       </div>
                       <span className="text-xs text-green-400">+10 points</span>
                     </div>
@@ -265,7 +265,7 @@ export function ReferralsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
-            <Card className="bg-[#1A1A1D] border-white/10">
+            <Card className="bg-[#141419] border-white/10">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-yellow-500" />
@@ -282,8 +282,8 @@ export function ReferralsPage() {
                       key={entry.id}
                       className={`flex items-center justify-between p-3 rounded-lg ${
                         entry.is_current_user
-                          ? "bg-[#18A0FB]/10 border border-[#18A0FB]/30"
-                          : "bg-[#0F0F11] border border-white/5"
+                          ? "bg-[#C4F135]/10 border border-[#18A0FB]/30"
+                          : "bg-[#0B0B0F] border border-white/5"
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -296,7 +296,7 @@ export function ReferralsPage() {
                         <span className="text-sm text-white">
                           {entry.nickname}
                           {entry.is_current_user && (
-                            <span className="ml-2 text-xs text-[#18A0FB]">(You)</span>
+                            <span className="ml-2 text-xs text-[#C4F135]">(You)</span>
                           )}
                         </span>
                       </div>

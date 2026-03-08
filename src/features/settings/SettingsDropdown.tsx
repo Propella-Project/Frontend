@@ -117,9 +117,11 @@ export function SettingsDropdown() {
   };
 
   const handleLogout = () => {
-    // Clear authentication tokens
+    // Clear authentication tokens (both dashboard and landing page names)
     localStorage.removeItem("propella_token");
+    localStorage.removeItem("access_token");
     localStorage.removeItem("propella_refresh_token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
     localStorage.removeItem("referralCode");
     localStorage.removeItem("aiTutor");

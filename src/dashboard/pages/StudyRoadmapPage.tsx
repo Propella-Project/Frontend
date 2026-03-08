@@ -8,7 +8,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Map, Calendar, CheckCircle2, Circle, Clock, BookOpen, Trophy, Loader2 } from "lucide-react";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { roadmapApi, type RoadmapDay, type RoadmapTask } from "@/api/dashboard.api";
+import { roadmapApi } from "@/api/roadmap.api";
+import type { RoadmapDay, RoadmapTask, TodayRoadmapResponse } from "@/types/api.types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 export function StudyRoadmapPage() {
   const [roadmap, setRoadmap] = useState<RoadmapDay[]>([]);
-  const [today, setToday] = useState<RoadmapDay | null>(null);
+  const [today, setToday] = useState<RoadmapDay | TodayRoadmapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
 
@@ -28,10 +29,10 @@ export function StudyRoadmapPage() {
       try {
         const [todayData, fullRoadmap] = await Promise.all([
           roadmapApi.getToday().catch(() => null),
-          roadmapApi.getFullRoadmap().catch(() => []),
+          roadmapApi.getFullRoadmap().catch(() => ({ days: [] })),
         ]);
         setToday(todayData);
-        setRoadmap(fullRoadmap);
+        setRoadmap(fullRoadmap.days || []);
       } catch (error) {
         console.error("[Roadmap] Failed to fetch:", error);
         toast.error("Failed to load roadmap");
@@ -54,7 +55,7 @@ export function StudyRoadmapPage() {
         if (!prev) return prev;
         return {
           ...prev,
-          tasks: prev.tasks.map((t) =>
+          tasks: prev.tasks.map((t: RoadmapTask) =>
             t.id === taskId ? { ...t, is_completed: true } : t
           ),
         };
@@ -72,7 +73,7 @@ export function StudyRoadmapPage() {
   // Calculate progress
   const getProgress = (day: RoadmapDay) => {
     if (!day.tasks.length) return 0;
-    const completed = day.tasks.filter((t) => t.is_completed).length;
+    const completed = day.tasks.filter((t: RoadmapTask) => t.is_completed).length;
     return Math.round((completed / day.tasks.length) * 100);
   };
 
@@ -127,21 +128,21 @@ export function StudyRoadmapPage() {
                     <div>
                       <CardTitle className="text-white">Today's Tasks</CardTitle>
                       <CardDescription className="text-gray-400">
-                        Day {today.day_number} • {today.estimated_hours} hours estimated
+                        Day {(today as RoadmapDay).day_number} • {(today as RoadmapDay).estimated_hours || 0} hours estimated
                       </CardDescription>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-white">{getProgress(today)}%</p>
+                    <p className="text-2xl font-bold text-white">{getProgress(today as RoadmapDay)}%</p>
                     <p className="text-xs text-gray-500">Complete</p>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <Progress value={getProgress(today)} className="mb-6 h-2" />
+                <Progress value={getProgress(today as RoadmapDay)} className="mb-6 h-2" />
                 
                 <div className="space-y-3">
-                  {today.tasks.map((task, index) => (
+                  {today.tasks.map((task: RoadmapTask, index: number) => (
                     <motion.div
                       key={task.id}
                       initial={{ opacity: 0, x: -20 }}
@@ -310,7 +311,7 @@ export function StudyRoadmapPage() {
                 </div>
                 <div className="text-center p-4 rounded-lg bg-[#0F0F11]">
                   <p className="text-2xl font-bold text-yellow-500">
-                    {roadmap.reduce((acc, day) => acc + day.tasks.filter((t) => t.is_completed).length, 0)}
+                    {roadmap.reduce((acc: number, day: RoadmapDay) => acc + day.tasks.filter((t: RoadmapTask) => t.is_completed).length, 0)}
                   </p>
                   <p className="text-sm text-gray-500">Tasks Done</p>
                 </div>

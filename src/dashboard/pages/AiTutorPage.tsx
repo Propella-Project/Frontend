@@ -8,7 +8,13 @@ import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Bot, Send, User, Sparkles, Trash2, Loader2 } from "lucide-react";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { tutorApi, type ChatMessage } from "@/api/dashboard.api";
+import { tutorApi } from "@/api/tutor.api";
+interface ChatMessage {
+  id: string;
+  content: string;
+  role: "user" | "assistant";
+  timestamp: Date | string;
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,20 +29,10 @@ export function AiTutorPage() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch chat history
+  // Fetch chat history (not implemented yet)
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const history = await tutorApi.getHistory().catch(() => []);
-        setMessages(history);
-      } catch (error) {
-        console.error("[Tutor] Failed to fetch history:", error);
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-
-    fetchHistory();
+    // TODO: Implement chat history fetching when backend supports it
+    setHistoryLoading(false);
   }, []);
 
   // Scroll to bottom when messages change
@@ -54,7 +50,7 @@ export function AiTutorPage() {
       id: `temp_${Date.now()}`,
       role: "user",
       content: input,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -62,14 +58,21 @@ export function AiTutorPage() {
     setLoading(true);
 
     try {
-      const response = await tutorApi.sendMessage(input);
+      const response = await tutorApi.sendMessage({ message: input });
       
       // Replace temp message and add AI response
+      const aiMessage: ChatMessage = {
+        id: `msg_${Date.now()}_ai`,
+        role: "assistant",
+        content: response.response,
+        timestamp: new Date(),
+      };
+      
       setMessages((prev) => {
         const filtered = prev.filter((m) => m.id !== userMessage.id);
         return [...filtered, 
           { ...userMessage, id: `msg_${Date.now()}_user` },
-          response.message
+          aiMessage
         ];
       });
     } catch (error) {
@@ -83,7 +86,7 @@ export function AiTutorPage() {
   // Clear chat history
   const clearHistory = async () => {
     try {
-      await tutorApi.clearHistory();
+      // TODO: Implement clear history on backend when supported
       setMessages([]);
       toast.success("Chat history cleared");
     } catch (error) {
@@ -101,7 +104,7 @@ export function AiTutorPage() {
   };
 
   // Format timestamp
-  const formatTime = (timestamp: string) => {
+  const formatTime = (timestamp: Date | string) => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
