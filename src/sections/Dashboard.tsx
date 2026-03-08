@@ -35,7 +35,6 @@ export function Dashboard() {
   const { user, gamification, roadmap, assignments, quizHistory, setCurrentPage, resetApp } = useStore();
   const { 
     nickname, 
-    referralPoints, 
     fetchReferralStats,
     refreshUserData 
   } = useUserStore();

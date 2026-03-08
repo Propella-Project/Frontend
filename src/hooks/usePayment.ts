@@ -4,6 +4,7 @@ import { roadmapApi } from "@/api/roadmap.api";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
 import { toast } from "sonner";
+import { getToken } from "@/api/client";
 
 interface UsePaymentReturn {
   loading: boolean;
@@ -32,6 +33,34 @@ export function usePayment(): UsePaymentReturn {
 
   // Fetch available subscription plans
   const fetchPlans = useCallback(async () => {
+    // Only fetch if user is authenticated
+    const token = getToken();
+    if (!token) {
+      console.log("[Payment] Skipping plans fetch - no auth token");
+      // Use fallback plans
+      const fallbackPlans: SubscriptionPlan[] = [
+        {
+          id: "monthly",
+          name: "Monthly Plan",
+          description: "Full access for 1 month",
+          amount: 1499,
+          currency: "NGN",
+          duration_days: 30,
+          features: [
+            "Personalized AI-generated roadmap",
+            "Unlimited AI tutor chat sessions",
+            "Detailed performance analytics",
+            "Weak topics identification",
+            "Daily streak tracking",
+            "Practice quizzes and past questions",
+          ],
+        },
+      ];
+      setPlans(fallbackPlans);
+      setSelectedPlan((current) => current || fallbackPlans[0]);
+      return;
+    }
+    
     try {
       const plansData = await subscriptionApi.getPlans();
       setPlans(plansData);
@@ -206,6 +235,13 @@ export function usePaymentStatus() {
 
   // Check subscription status from backend
   const checkSubscriptionStatus = useCallback(async () => {
+    // Only check if user is authenticated
+    const token = getToken();
+    if (!token) {
+      console.log("[Payment] Skipping subscription check - no auth token");
+      return false;
+    }
+    
     setIsLoading(true);
     try {
       const status = await subscriptionApi.getSubscriptionStatus();

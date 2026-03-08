@@ -7,11 +7,37 @@ import type {
   DashboardResponse, 
   UserLevelResponse, 
   PerformanceDataPoint,
-  SubscriptionPlan,
-  ReferralStats,
   TodayRoadmapResponse,
   StreakResponse,
 } from "@/types/api.types";
+
+// Local type definitions for mock data
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  amount: number;
+  currency: string;
+  duration_days: number;
+  features: string[];
+}
+
+interface ReferralStats {
+  user: {
+    id: string;
+    nickname: string;
+    referral_code: string;
+    referral_points: number;
+    total_referrals: number;
+    estimated_earnings: number;
+  };
+  referrals: Array<{
+    id: string;
+    nickname: string;
+    date: string;
+    points_earned: number;
+  }>;
+}
 
 // Dashboard Data
 export const mockDashboardData: DashboardResponse = {

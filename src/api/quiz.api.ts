@@ -28,7 +28,7 @@ export const quizApi = {
       const aiResponse = await aiEngineApi.generateQuiz(requestBody);
       
       // Transform AI Engine response to match expected format
-      return aiResponse.questions.map((q, index) => ({
+      return aiResponse.questions.map((q) => ({
         subject: q.subject,
         question: q.question,
         options: q.options,
@@ -80,10 +80,7 @@ export const quizApi = {
           student_id: userId,
           subject,
           topic: "diagnostic_quiz",
-          score: Math.round((correct / total) * 100),
-          time_spent: results.reduce((acc, r) => acc + r.timeUsed, 0),
-          questions_attempted: total,
-          questions_correct: correct,
+          mastery_score: Math.round((correct / total) * 100),
         }).catch(() => {/* Silent fail */});
       } catch {
         // Silent fail for progress update
@@ -140,7 +137,7 @@ function storeQuizResultsLocally(payload: QuizResultsPayload): void {
 }
 
 // Generate fallback questions when both AI and backend fail
-function generateFallbackQuestions(subject: string, topic?: string): DiagnosticQuestion[] {
+function generateFallbackQuestions(subject: string, _topic?: string): DiagnosticQuestion[] {
   const subjects: Record<string, DiagnosticQuestion[]> = {
     mathematics: [
       {

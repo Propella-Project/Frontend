@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState, useCallback, Suspense, lazy } from "react";
+import { type ReactNode, useEffect, useState, useCallback, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";

@@ -1,5 +1,6 @@
 import apiClient from "./client";
 import { ENDPOINTS } from "@/config/endpoints";
+import { getToken } from "./client";
 
 export interface ReferralStats {
   user: {
@@ -36,6 +37,23 @@ export const referralApi = {
   // Get user's referral stats from /api/accounts/referrals/
   // Returns user's personal referral_code, points, and total_referrals
   getReferralStats: async (): Promise<ReferralStats> => {
+    // Check if user is authenticated
+    const token = getToken();
+    if (!token) {
+      console.log("[Referral] No auth token, returning fallback data");
+      return {
+        user: {
+          id: "",
+          nickname: "",
+          referral_code: generateFallbackCode(),
+          referral_points: 0,
+          total_referrals: 0,
+          estimated_earnings: 0,
+        },
+        referrals: [],
+      };
+    }
+    
     try {
       const response = await apiClient.get(ENDPOINTS.referrals.getStats);
       return response.data;

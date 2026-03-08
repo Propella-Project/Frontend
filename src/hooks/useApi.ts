@@ -69,7 +69,6 @@ export function useApi<T, P = void>(
     deps = [],
     onSuccess,
     onError,
-    showErrorToast = true,
     errorMessage: customErrorMessage,
     delay = 0,
   } = options;
@@ -234,8 +233,6 @@ export function useParallelApi<T extends Record<string, unknown>>(
   apiCalls: { [K in keyof T]: () => Promise<T[K]> },
   options: Omit<UseApiOptions<T>, "initialData" | "fallbackData"> = {}
 ): UseApiReturn<T> & { results: Partial<T> } {
-  const { onSuccess, onError } = options;
-  
   const combinedApiFunction = useCallback(async (): Promise<T> => {
     const entries = Object.entries(apiCalls) as [keyof T, () => Promise<T[keyof T]>][];
     const results = await Promise.allSettled(

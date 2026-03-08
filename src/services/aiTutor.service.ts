@@ -13,9 +13,9 @@ interface ChatMessage {
 type PersonalityType = "mentor" | "cheerleader" | "professor" | "peer";
 
 const personalityMapping: Record<PersonalityType, string> = {
-  mentor: "mentor",
-  cheerleader: "cheerleader",
-  professor: "professor",
+  mentor: "coach_victor",
+  cheerleader: "nana_aisha",
+  professor: "professor_wisdom",
   peer: "mc_flow",
 };
 
@@ -39,25 +39,33 @@ export async function sendMessageToTutor(
       chat_id: chatId,
       tutor_personality: personalityMapping[personality] as
         | "mc_flow"
-        | "professor"
-        | "mentor"
-        | "cheerleader",
+        | "coach_victor"
+        | "nana_aisha"
+        | "sergeant_drill"
+        | "professor_wisdom"
+        | null,
     });
 
     return {
       chatId: response.chat_id,
-      reply: response.response,
-      messages: [{
-        id: response.message_id,
-        role: "assistant",
-        content: response.response,
-        timestamp: new Date(),
-      }],
+      reply: response.reply,
+      messages: response.messages.map((msg, index) => ({
+        id: msg.id || `msg_${index}_${Date.now()}`,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.created_at || Date.now()),
+      })) as ChatMessage[],
     };
   } catch (error) {
     console.error("Failed to send message to AI tutor:", error);
     throw error;
   }
+}
+
+// Extended response type for tutor explain
+interface TutorExplainResponseExtended {
+  explanation: string;
+  follow_up_questions?: string[];
 }
 
 // Get topic explanation from AI tutor
@@ -76,16 +84,15 @@ export async function getTopicExplanation(
 
   try {
     const response = await aiEngineApi.explainTopic({
-      student_id: "user_1", // TODO: Use actual user ID
       subject,
       topic,
-      format: format || "text",
-      difficulty: difficulty || "standard",
-    });
+      subtopic: format || "text",
+      student_level: (difficulty === "simple" ? "beginner" : difficulty === "detailed" ? "advanced" : "intermediate"),
+    }) as unknown as TutorExplainResponseExtended;
 
     return {
       explanation: response.explanation,
-      followUpQuestions: response.follow_up_questions,
+      followUpQuestions: response.follow_up_questions || [],
     };
   } catch (error) {
     console.error("Failed to get topic explanation:", error);
@@ -135,7 +142,7 @@ export async function streamMessageFromTutor(
   }
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_AI_ENGINE_BASE_URL}/tutor/chat`, {
+    const response = await fetch(`${import.meta.env.VITE_AI_ENGINE_BASE_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

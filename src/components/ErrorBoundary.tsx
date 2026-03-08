@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   <p className="text-sm text-destructive/80 mt-1">
                     {this.state.error.message}
                   </p>
-                  {process.env.NODE_ENV === "development" && this.state.errorInfo && (
+                  {import.meta.env.DEV && this.state.errorInfo && (
                     <details className="mt-2">
                       <summary className="text-xs text-muted-foreground cursor-pointer">
                         Stack trace (development only)

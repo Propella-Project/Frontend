@@ -118,6 +118,12 @@ export const useUserStore = create<UserState>()(
 
       // Fetch live referral stats from backend
       fetchReferralStats: async () => {
+        // Only fetch if user is authenticated
+        const state = get();
+        if (!state.isAuthenticated || !state.user_id) {
+          console.log("[Referral] Skipping fetch - user not authenticated");
+          return;
+        }
         try {
           const stats = await referralApi.getReferralStats();
           set({
@@ -141,17 +147,23 @@ export const useUserStore = create<UserState>()(
 
       // Refresh all user data from backend
       refreshUserData: async () => {
+        // Only refresh if user is authenticated
+        const state = get();
+        if (!state.isAuthenticated || !state.user_id) {
+          console.log("[User] Skipping refresh - user not authenticated");
+          return;
+        }
         try {
           const dashboardData = await dashboardApi.getDashboard();
-          set((state) => ({
-            ...state,
+          set((prevState) => ({
+            ...prevState,
             nickname: dashboardData.nickname,
             rank: dashboardData.rank,
             level: dashboardData.level,
             points: dashboardData.points,
             streak: dashboardData.streak,
             // Use user_id as username if username not provided
-            username: state.username || dashboardData.nickname || state.user_id,
+            username: prevState.username || dashboardData.nickname || prevState.user_id,
           }));
           
           // Also fetch referral stats

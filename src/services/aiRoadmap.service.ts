@@ -2,6 +2,29 @@ import { aiEngineApi } from "@/api/ai-engine.api";
 import type { Subject, RoadmapDay, Task } from "@/types";
 import { FEATURES } from "@/config/env";
 
+// Extended response types for AI Engine
+interface StudyPlanSession {
+  day: number;
+  topic: string;
+  duration: number;
+  activities: string[];
+}
+
+interface StudyPlanResponseExtended {
+  sessions: StudyPlanSession[];
+}
+
+interface StudyRecommendation {
+  topic: string;
+  priority: "high" | "medium" | "low";
+  suggested_resources: string[];
+}
+
+interface StudyRecommendationResponseExtended {
+  recommendations: StudyRecommendation[];
+  estimated_time_to_improvement: number;
+}
+
 // Generate AI-powered study roadmap
 export async function generateAIRoadmap(
   studentId: string,
@@ -97,17 +120,16 @@ export async function generateAIStudyPlan(
   try {
     const response = await aiEngineApi.generateStudyPlan({
       student_id: studentId,
-      subject: subject.name,
-      weak_topics: subject.topics.slice(0, 3).map((t) => t.name),
-      available_hours: availableHours,
-      deadline,
-    });
+      subjects: [subject.name],
+      exam_date: deadline,
+      daily_study_hours: availableHours,
+    }) as unknown as StudyPlanResponseExtended;
 
     // Convert sessions to tasks
     const tasks: Task[] = [];
 
-    response.sessions.forEach((session, sessionIndex) => {
-      session.activities.forEach((activity, activityIndex) => {
+    response.sessions.forEach((session: StudyPlanSession, sessionIndex: number) => {
+      session.activities.forEach((activity: string, activityIndex: number) => {
         tasks.push({
           id: `task_${session.day}_${sessionIndex}_${activityIndex}`,
           dayId: `day_${session.day}`,
@@ -148,20 +170,20 @@ export async function getAIStudyRecommendation(
     const response = await aiEngineApi.getStudyRecommendation(
       studentId,
       subject.name
-    );
+    ) as unknown as StudyRecommendationResponseExtended;
 
     // Extract priority topics from recommendations
     const priorityTopics = response.recommendations
-      .filter(r => r.priority === "high")
-      .map(r => r.topic);
+      .filter((r: StudyRecommendation) => r.priority === "high")
+      .map((r: StudyRecommendation) => r.topic);
     
     // Collect all suggested resources
     const suggestedResources = response.recommendations
-      .flatMap(r => r.suggested_resources);
+      .flatMap((r: StudyRecommendation) => r.suggested_resources);
 
     return {
       priorityTopics,
-      suggestedResources: [...new Set(suggestedResources)],
+      suggestedResources: [...new Set(suggestedResources)] as string[],
       estimatedTimeToMastery: response.estimated_time_to_improvement,
     };
   } catch (error) {

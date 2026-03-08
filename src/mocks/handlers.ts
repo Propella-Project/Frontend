@@ -9,24 +9,8 @@
 import { ENV } from "@/config/env";
 import * as mockData from "./data";
 
-// Check if MSW is available
-let mswAvailable = false;
-try {
-  // Dynamic import would go here if we had MSW installed
-  mswAvailable = false;
-} catch {
-  mswAvailable = false;
-}
-
 // Extract base URL for pattern matching
 const API_BASE = ENV.API_BASE_URL;
-
-// Mock response helpers (standalone, no MSW required)
-const createMockResponse = (data: unknown, status = 200) => ({
-  json: () => Promise.resolve(data),
-  status,
-  ok: status >= 200 && status < 300,
-});
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

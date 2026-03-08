@@ -218,9 +218,10 @@ export const aiEngineApi = {
       );
       return response.data;
     } catch (error) {
-      console.error("[AI Engine] Quiz generation failed:", error.message);
-      if (error.response?.status === 422) {
-        console.error("[AI Engine] Validation error:", JSON.stringify(error.response?.data, null, 2));
+      const axiosError = error as AxiosError;
+      console.error("[AI Engine] Quiz generation failed:", axiosError.message);
+      if (axiosError.response?.status === 422) {
+        console.error("[AI Engine] Validation error:", JSON.stringify(axiosError.response?.data, null, 2));
       }
       throw error;
     }

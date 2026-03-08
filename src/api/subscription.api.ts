@@ -1,6 +1,7 @@
 import apiClient from "./client";
 import { ENDPOINTS } from "@/config/endpoints";
 import { ENV } from "@/config/env";
+import { getToken } from "./client";
 
 export interface SubscriptionPlan {
   id: string;
@@ -61,6 +62,13 @@ export interface UserSubscriptionStatus {
 export const subscriptionApi = {
   // Get available subscription plans (requires authentication)
   getPlans: async (): Promise<SubscriptionPlan[]> => {
+    // Check if user is authenticated
+    const token = getToken();
+    if (!token) {
+      console.log("[Subscription] No auth token, throwing auth error");
+      throw new Error("Authentication required");
+    }
+    
     console.log("[Subscription] Fetching plans from:", ENDPOINTS.subscriptions.plans);
     const response = await apiClient.get(ENDPOINTS.subscriptions.plans);
     return response.data;
@@ -116,6 +124,17 @@ export const subscriptionApi = {
 
   // Get current user's subscription status from the subscribe endpoint
   getSubscriptionStatus: async (): Promise<UserSubscriptionStatus> => {
+    // Check if user is authenticated
+    const token = getToken();
+    if (!token) {
+      console.log("[Subscription] No auth token for status check");
+      return {
+        has_active_subscription: false,
+        subscription: null,
+        days_remaining: 0,
+      };
+    }
+    
     try {
       // Use the subscribe endpoint with GET to check subscription status
       const response = await apiClient.get(ENDPOINTS.subscriptions.subscribe);

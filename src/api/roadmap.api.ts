@@ -47,7 +47,7 @@ export const roadmapApi = {
       // Try cache first
       const cached = getCachedRoadmap();
       if (cached) {
-        const day = cached.days.find(d => d.id === dayId || d.day_number === parseInt(dayId));
+        const day = cached.days.find((d) => d.id === dayId || d.day === parseInt(dayId));
         if (day) {
           return transformAiDayToRoadmapDay(day);
         }
@@ -76,7 +76,7 @@ export const roadmapApi = {
       const roadmap = await generateRoadmapWithAI();
       cacheRoadmap(roadmap);
       // Convert phases to days
-      const days = roadmap.phases.map((phase, index) => ({
+      const days = (roadmap.phases || []).map((phase, index) => ({
         id: `day_${index + 1}`,
         day_number: index + 1,
         date: new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -123,8 +123,33 @@ export const roadmapApi = {
   },
 };
 
+// Extended cached roadmap type with days
+interface CachedRoadmapDay {
+  id: string;
+  day: number;
+  date: string;
+  subjects: string[];
+  topics: string[];
+  estimated_time: number;
+  difficulty: string;
+  tasks?: Array<{
+    id: string;
+    status: string;
+  }>;
+}
+
+interface CachedRoadmap {
+  days: CachedRoadmapDay[];
+  phases?: Array<{
+    order: number;
+    title: string;
+    description: string;
+  }>;
+  cached_at: string;
+}
+
 // Generate roadmap using AI Engine
-async function generateRoadmapWithAI() {
+async function generateRoadmapWithAI(): Promise<CachedRoadmap> {
   // Get user profile data
   const examDate = localStorage.getItem("propella_exam_date") || getDefaultExamDate();
   const subjects = JSON.parse(localStorage.getItem("propella_subjects") || '["Mathematics", "English"]');
@@ -141,7 +166,22 @@ async function generateRoadmapWithAI() {
     
     localStorage.setItem(ROADMAP_GENERATION_STATUS, JSON.stringify({ status: "ready", progress: 100 }));
     
-    return response;
+    // Convert phases to days for caching
+    const days: CachedRoadmapDay[] = response.phases.map((phase, index) => ({
+      id: `day_${index + 1}`,
+      day: index + 1,
+      date: new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      subjects: subjects.slice(0, 2),
+      topics: [phase.title, phase.description],
+      estimated_time: 120,
+      difficulty: "medium",
+    }));
+    
+    return {
+      days,
+      phases: response.phases,
+      cached_at: new Date().toISOString(),
+    };
   } catch (error) {
     localStorage.setItem(ROADMAP_GENERATION_STATUS, JSON.stringify({ status: "error", progress: 0 }));
     throw error;
@@ -149,29 +189,22 @@ async function generateRoadmapWithAI() {
 }
 
 // Cache helpers
-function getCachedRoadmap() {
+function getCachedRoadmap(): CachedRoadmap | null {
   const cached = localStorage.getItem(ROADMAP_CACHE_KEY);
   return cached ? JSON.parse(cached) : null;
 }
 
-function cacheRoadmap(roadmap: { phases: Array<{
-  order: number;
-  title: string;
-  description: string;
-}> }) {
-  localStorage.setItem(ROADMAP_CACHE_KEY, JSON.stringify({
-    ...roadmap,
-    cached_at: new Date().toISOString(),
-  }));
+function cacheRoadmap(roadmap: CachedRoadmap) {
+  localStorage.setItem(ROADMAP_CACHE_KEY, JSON.stringify(roadmap));
 }
 
 function updateLocalTaskStatus(taskId: string, status: string) {
   const cached = getCachedRoadmap();
   if (cached) {
     // Find and update the task in the cached roadmap
-    cached.days.forEach((day: { tasks?: Array<{ id: string; status: string }> }) => {
+    cached.days.forEach((day) => {
       if (day.tasks) {
-        const task = day.tasks.find((t: { id: string }) => t.id === taskId);
+        const task = day.tasks.find((t) => t.id === taskId);
         if (task) {
           task.status = status;
         }

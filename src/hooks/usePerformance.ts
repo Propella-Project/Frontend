@@ -117,7 +117,7 @@ export function useScrollPosition() {
 export function useIntersectionObserver(
   options: IntersectionObserverInit = {}
 ): [(node: Element | null) => void, boolean] {
-  const [isIntersecting, setIsIntersecting] = useState(false);
+  const [, setIsIntersecting] = useState(false);
   const [hasIntersected, setHasIntersected] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const elementRef = useRef<Element | null>(null);
