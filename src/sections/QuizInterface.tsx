@@ -115,6 +115,25 @@ export function QuizInterface() {
     );
   }
 
+  // Guard against undefined questions or out of bounds index
+  if (!currentQuiz.questions || currentQuiz.questions.length === 0 || currentQuestionIndex >= currentQuiz.questions.length) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center p-4">
+        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-[#EF4444] mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Quiz Error</h2>
+          <p className="text-[#9CA3AF] mb-4">Unable to load quiz questions. Please try again.</p>
+          <Button
+            onClick={() => setCurrentPage('dashboard')}
+            className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600]"
+          >
+            Go to Dashboard
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   const currentQuestion = currentQuiz.questions[currentQuestionIndex];
   const progress =
     ((currentQuestionIndex + 1) / currentQuiz.totalQuestions) * 100;
@@ -547,7 +566,7 @@ export function QuizInterface() {
                 variant="outline"
                 className="border-[#6D28D9] text-[#CCFF00]"
               >
-                {currentQuestion.topic}
+                {currentQuestion?.topic || currentQuestion?.subjectId || "General"}
               </Badge>
               <Button
                 variant="ghost"
@@ -562,15 +581,15 @@ export function QuizInterface() {
               </Button>
             </div>
             <h2 className="text-lg font-medium leading-relaxed">
-              {currentQuestion.question}
+              {currentQuestion?.question || "Question loading..."}
             </h2>
           </Card>
 
           {/* Options */}
           <div className="space-y-3">
-            {currentQuestion.options.map((option, index) => {
+            {currentQuestion?.options?.map((option, index) => {
               const isSelected = selectedAnswer === index;
-              const isCorrect = index === currentQuestion.correctAnswer;
+              const isCorrect = index === currentQuestion?.correctAnswer;
               const showCorrect = hasAnswered && isCorrect;
               const showWrong = hasAnswered && isSelected && !isCorrect;
 

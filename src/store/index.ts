@@ -15,6 +15,10 @@ import type {
   Badge,
 } from "@/types";
 import { JAMB_SUBJECTS, BADGES, RANKS } from "@/types";
+import { FEATURES } from "@/config/env";
+import aiQuizService from "@/services/aiQuiz.service";
+import aiRoadmapService from "@/services/aiRoadmap.service";
+// import aiTutorService from "@/services/aiTutor.service"; // Available for future use
 
 interface AppState {
   // User Data
@@ -64,8 +68,14 @@ interface AppState {
     | "tutor"
     | "tasks"
     | "quiz"
-    | "catalog";
+    | "catalog"
+    | "profile";
   isLoading: boolean;
+  
+  // AI Generation State
+  isGeneratingQuiz: boolean;
+  isGeneratingRoadmap: boolean;
+  generationError: string | null;
 
   // Onboarding Actions
   setUser: (user: Partial<User>) => void;
@@ -78,7 +88,8 @@ interface AppState {
   updateTopicAbility: (topicId: string, score: number) => void;
 
   // Roadmap Actions
-  generateRoadmap: () => void;
+  generateRoadmap: () => Promise<void>;
+  generateRoadmapWithAI: () => Promise<void>;
   unlockDay: (dayNumber: number) => void;
   completeDay: (dayNumber: number) => void;
 
@@ -88,9 +99,15 @@ interface AppState {
     topicId: string | null,
     type: Quiz["type"],
     subjectIds?: string[],
-  ) => void;
+  ) => Promise<void>;
+  startQuizWithAI: (
+    subjectId: string,
+    topicId: string | null,
+    type: Quiz["type"],
+    subjectIds?: string[],
+  ) => Promise<void>;
   answerQuestion: (questionIndex: number, answer: number) => void;
-  completeQuiz: () => void;
+  completeQuiz: () => Promise<void>;
 
   // Task Actions
   addTask: (task: Task) => void;
@@ -170,6 +187,9 @@ export const useStore = create<AppState>()(
       badges: BADGES,
       currentPage: "onboarding",
       isLoading: false,
+      isGeneratingQuiz: false,
+      isGeneratingRoadmap: false,
+      generationError: null,
 
       // Onboarding Actions
       setUser: (userData) => {
@@ -250,10 +270,21 @@ export const useStore = create<AppState>()(
       },
 
       // Roadmap Actions
-      generateRoadmap: () => {
-        const { user, subjects } = get();
+      generateRoadmap: async () => {
+        const { user, subjects, generateRoadmapWithAI } = get();
         if (!user || !user.examDate) return;
 
+        // Try AI-powered roadmap first
+        if (FEATURES.ENABLE_AI_ENGINE) {
+          try {
+            await generateRoadmapWithAI();
+            return;
+          } catch (error) {
+            console.warn("AI roadmap generation failed, using fallback:", error);
+          }
+        }
+
+        // Fallback: Generate local roadmap
         const examDate = new Date(user.examDate);
         const today = new Date();
         const daysUntilExam = Math.ceil(
@@ -351,7 +382,33 @@ export const useStore = create<AppState>()(
           dayNumber++;
         }
 
-        set({ roadmap });
+        set({ roadmap, isGeneratingRoadmap: false });
+      },
+
+      generateRoadmapWithAI: async () => {
+        const { user, selectedSubjects, diagnosticResults } = get();
+        if (!user || !user.examDate) return;
+
+        set({ isGeneratingRoadmap: true, generationError: null });
+
+        try {
+          const roadmap = await aiRoadmapService.generateAIRoadmap(
+            user.id || "user_1",
+            selectedSubjects,
+            new Date(user.examDate),
+            user.dailyStudyHours,
+            diagnosticResults || undefined,
+          );
+
+          set({ roadmap, isGeneratingRoadmap: false });
+        } catch (error) {
+          console.error("AI roadmap generation failed:", error);
+          set({
+            isGeneratingRoadmap: false,
+            generationError: "Failed to generate AI roadmap",
+          });
+          throw error;
+        }
       },
 
       unlockDay: (dayNumber) => {
@@ -383,9 +440,23 @@ export const useStore = create<AppState>()(
       },
 
       // Quiz Actions
-      startQuiz: (subjectId, topicId, type, subjectIds) => {
-        const { subjects } = get();
+      startQuiz: async (subjectId, topicId, type, subjectIds) => {
+        const { startQuizWithAI } = get();
 
+        set({ isGeneratingQuiz: true, generationError: null });
+
+        try {
+          // Try AI-powered quiz generation first
+          if (FEATURES.ENABLE_AI_ENGINE) {
+            await startQuizWithAI(subjectId, topicId, type, subjectIds);
+            return;
+          }
+        } catch (error) {
+          console.warn("AI quiz generation failed, using fallback:", error);
+        }
+
+        // Fallback: Use template-based generation
+        const { subjects } = get();
         let questions: Question[] = [];
 
         // For diagnostic quiz with multiple subjects
@@ -419,7 +490,10 @@ export const useStore = create<AppState>()(
         } else {
           // Single subject quiz
           const subject = subjects.find((s) => s.id === subjectId);
-          if (!subject) return;
+          if (!subject) {
+            set({ isGeneratingQuiz: false });
+            return;
+          }
 
           questions = generateQuestions(
             subject,
@@ -443,7 +517,68 @@ export const useStore = create<AppState>()(
           type,
         };
 
-        set({ currentQuiz: quiz, currentPage: "quiz" });
+        set({ currentQuiz: quiz, currentPage: "quiz", isGeneratingQuiz: false });
+      },
+
+      startQuizWithAI: async (subjectId, topicId, type, subjectIds) => {
+        const { subjects } = get();
+
+        set({ isGeneratingQuiz: true, generationError: null });
+
+        try {
+          let questions: Question[] = [];
+
+          if (type === "diagnostic" && subjectIds && subjectIds.length > 0) {
+            // Generate mixed questions for diagnostic quiz
+            const selectedSubjects = subjectIds
+              .map((sid) => subjects.find((s) => s.id === sid))
+              .filter((s): s is Subject => s !== undefined);
+
+            questions = await aiQuizService.generateMixedAIQuestions(
+              selectedSubjects,
+              3, // 3 questions per subject
+              "medium",
+            );
+          } else {
+            // Single subject quiz
+            const subject = subjects.find((s) => s.id === subjectId);
+            if (!subject) {
+              set({ isGeneratingQuiz: false });
+              return;
+            }
+
+            questions = await aiQuizService.generateAIQuestions(
+              subject,
+              topicId,
+              type === "diagnostic" ? 5 : 10,
+              "medium",
+            );
+          }
+
+          const quiz: Quiz = {
+            id: `quiz_${Date.now()}`,
+            userId: get().user?.id || "user_1",
+            subjectId: subjectIds ? subjectIds[0] : subjectId,
+            topicId,
+            questions,
+            answers: [],
+            score: 0,
+            totalQuestions: questions.length,
+            timeTaken: 0,
+            completed: false,
+            createdAt: new Date(),
+            type,
+          };
+
+          set({ currentQuiz: quiz, currentPage: "quiz", isGeneratingQuiz: false });
+        } catch (error) {
+          console.error("AI quiz generation failed:", error);
+          set({
+            isGeneratingQuiz: false,
+            generationError: "Failed to generate AI quiz",
+          });
+          throw error;
+        }
       },
 
       answerQuestion: (questionIndex, answer) => {
@@ -462,8 +597,8 @@ export const useStore = create<AppState>()(
         });
       },
 
-      completeQuiz: () => {
-        const { currentQuiz } = get();
+      completeQuiz: async () => {
+        const { currentQuiz, user } = get();
         if (!currentQuiz) return;
 
         let correct = 0;
@@ -474,12 +609,13 @@ export const useStore = create<AppState>()(
         });
 
         const score = Math.round((correct / currentQuiz.totalQuestions) * 100);
+        const timeTaken = Date.now() - currentQuiz.createdAt.getTime();
 
         const completedQuiz: Quiz = {
           ...currentQuiz,
           score,
           completed: true,
-          timeTaken: Date.now() - currentQuiz.createdAt.getTime(),
+          timeTaken,
         };
 
         set((state) => ({
@@ -491,6 +627,19 @@ export const useStore = create<AppState>()(
         // Update topic ability
         if (currentQuiz.topicId) {
           get().updateTopicAbility(currentQuiz.topicId, score);
+        }
+
+        // Update progress in AI Engine
+        if (FEATURES.ENABLE_AI_ENGINE && user) {
+          const firstQuestion = currentQuiz.questions[0];
+          if (firstQuestion) {
+            await aiRoadmapService.updateAIProgress(
+              user.id || "user_1",
+              firstQuestion.subjectId,
+              firstQuestion.topicId || firstQuestion.subjectId, // fallback to subject if no topic
+              score,
+            );
+          }
         }
 
         // Update current day if this was a daily quiz
@@ -1351,6 +1500,790 @@ function generateQuestions(
         ],
         correct: 1,
         explanation: "Hyperbole is extreme exaggeration for effect.",
+      },
+    ],
+    accounting: [
+      {
+        q: "What is the accounting equation?",
+        options: [
+          "Assets = Liabilities + Capital",
+          "Assets + Liabilities = Capital",
+          "Assets = Liabilities - Capital",
+          "Assets - Liabilities = Capital",
+        ],
+        correct: 0,
+        explanation: "The fundamental accounting equation is Assets = Liabilities + Capital (Equity).",
+      },
+      {
+        q: "What type of account is Cash?",
+        options: [
+          "Liability",
+          "Asset",
+          "Expense",
+          "Income",
+        ],
+        correct: 1,
+        explanation: "Cash is an asset account representing money owned by the business.",
+      },
+      {
+        q: "What is depreciation?",
+        options: [
+          "Increase in asset value",
+          "Decrease in asset value over time",
+          "Buying new assets",
+          "Selling assets",
+        ],
+        correct: 1,
+        explanation: "Depreciation is the systematic allocation of the cost of a fixed asset over its useful life.",
+      },
+      {
+        q: "Which book is used to record credit purchases?",
+        options: [
+          "Sales Day Book",
+          "Purchases Day Book",
+          "Cash Book",
+          "Journal Proper",
+        ],
+        correct: 1,
+        explanation: "The Purchases Day Book records all credit purchases of goods.",
+      },
+      {
+        q: "What is a trial balance?",
+        options: [
+          "A financial statement",
+          "A list of all ledger account balances",
+          "A bank statement",
+          "A list of debtors",
+        ],
+        correct: 1,
+        explanation: "A trial balance is a list of all general ledger accounts and their balances at a specific date.",
+      },
+      {
+        q: "What is a debit note?",
+        options: [
+          "Sent when returning goods",
+          "Sent when receiving goods",
+          "Sent when paying cash",
+          "Sent when receiving payment",
+        ],
+        correct: 0,
+        explanation: "A debit note is issued by a buyer when returning goods to a supplier.",
+      },
+      {
+        q: "What type of account is Creditors?",
+        options: [
+          "Asset",
+          "Liability",
+          "Income",
+          "Expense",
+        ],
+        correct: 1,
+        explanation: "Creditors (Accounts Payable) represent amounts owed to suppliers and are liabilities.",
+      },
+      {
+        q: "What is the purpose of a bank reconciliation statement?",
+        options: [
+          "To calculate profit",
+          "To reconcile cash book and bank statement differences",
+          "To prepare trial balance",
+          "To record sales",
+        ],
+        correct: 1,
+        explanation: "Bank reconciliation identifies differences between the cash book balance and bank statement.",
+      },
+      {
+        q: "Which concept states that business transactions should be separate from personal transactions?",
+        options: [
+          "Going concern",
+          "Business entity concept",
+          "Money measurement",
+          "Dual aspect",
+        ],
+        correct: 1,
+        explanation: "The business entity concept states that business and owner's transactions are separate.",
+      },
+      {
+        q: "What is the normal balance of an expense account?",
+        options: [
+          "Credit",
+          "Debit",
+          "Zero",
+          "Negative",
+        ],
+        correct: 1,
+        explanation: "Expense accounts normally have debit balances as expenses reduce capital.",
+      },
+    ],
+    agricultural_science: [
+      {
+        q: "What is the process of removing weeds from farmland called?",
+        options: [
+          "Planting",
+          "Weeding",
+          "Harvesting",
+          "Tilling",
+        ],
+        correct: 1,
+        explanation: "Weeding is the removal of unwanted plants (weeds) from cultivated land.",
+      },
+      {
+        q: "Which of these is a macronutrient required by plants?",
+        options: [
+          "Zinc",
+          "Nitrogen",
+          "Iron",
+          "Copper",
+        ],
+        correct: 1,
+        explanation: "Nitrogen is a macronutrient essential for plant growth and leaf development.",
+      },
+      {
+        q: "What type of farm animal is a goat?",
+        options: [
+          "Monogastric",
+          "Ruminant",
+          "Non-ruminant",
+          "Carnivore",
+        ],
+        correct: 1,
+        explanation: "Goats are ruminants with four-compartment stomachs for digesting roughage.",
+      },
+      {
+        q: "What is the male reproductive organ of a flower called?",
+        options: [
+          "Pistil",
+          "Stamen",
+          "Ovary",
+          "Sepal",
+        ],
+        correct: 1,
+        explanation: "The stamen is the male reproductive part of a flower producing pollen.",
+      },
+      {
+        q: "Which farming system involves growing crops and raising animals together?",
+        options: [
+          "Mono-cropping",
+          "Mixed farming",
+          "Shifting cultivation",
+          "Plantation farming",
+        ],
+        correct: 1,
+        explanation: "Mixed farming combines crop cultivation with livestock rearing on the same farm.",
+      },
+      {
+        q: "What is the main function of the xylem in plants?",
+        options: [
+          "Food transport",
+          "Water and mineral transport",
+          "Photosynthesis",
+          "Protection",
+        ],
+        correct: 1,
+        explanation: "Xylem transports water and dissolved minerals from roots to other plant parts.",
+      },
+      {
+        q: "What is pasteurization?",
+        options: [
+          "Freezing food",
+          "Heating to kill harmful bacteria",
+          "Drying food",
+          "Smoking food",
+        ],
+        correct: 1,
+        explanation: "Pasteurization involves heating food (especially milk) to destroy pathogenic bacteria.",
+      },
+      {
+        q: "Which of these is a leguminous crop?",
+        options: [
+          "Maize",
+          "Cowpea",
+          "Cassava",
+          "Yam",
+        ],
+        correct: 1,
+        explanation: "Cowpea is a legume that fixes atmospheric nitrogen through root nodules.",
+      },
+      {
+        q: "What is the process of crossing different varieties of plants called?",
+        options: [
+          "Cloning",
+          "Hybridization",
+          "Grafting",
+          "Layering",
+        ],
+        correct: 1,
+        explanation: "Hybridization is crossing genetically different plants to produce hybrids with desired traits.",
+      },
+      {
+        q: "What is the best method for preserving fish in rural areas without refrigeration?",
+        options: [
+          "Canning",
+          "Smoking",
+          "Freezing",
+          "Pasteurizing",
+        ],
+        correct: 1,
+        explanation: "Smoking is a traditional method of fish preservation that doesn't require electricity.",
+      },
+    ],
+    geography: [
+      {
+        q: "What is the study of the Earth's surface and its features called?",
+        options: [
+          "Geology",
+          "Geography",
+          "Astronomy",
+          "Biology",
+        ],
+        correct: 1,
+        explanation: "Geography is the study of Earth's landscapes, environments, places, and relationships.",
+      },
+      {
+        q: "Which line divides the Earth into Northern and Southern Hemispheres?",
+        options: [
+          "Prime Meridian",
+          "Equator",
+          "Tropic of Cancer",
+          "Arctic Circle",
+        ],
+        correct: 1,
+        explanation: "The Equator (0° latitude) divides Earth into Northern and Southern Hemispheres.",
+      },
+      {
+        q: "What type of rock is formed from cooled magma or lava?",
+        options: [
+          "Sedimentary",
+          "Metamorphic",
+          "Igneous",
+          "Limestone",
+        ],
+        correct: 2,
+        explanation: "Igneous rocks form when molten material (magma/lava) cools and solidifies.",
+      },
+      {
+        q: "What is the largest ocean on Earth?",
+        options: [
+          "Atlantic Ocean",
+          "Indian Ocean",
+          "Pacific Ocean",
+          "Arctic Ocean",
+        ],
+        correct: 2,
+        explanation: "The Pacific Ocean is the largest, covering about 30% of Earth's surface.",
+      },
+      {
+        q: "What instrument is used to measure atmospheric pressure?",
+        options: [
+          "Thermometer",
+          "Barometer",
+          "Hygrometer",
+          "Anemometer",
+        ],
+        correct: 1,
+        explanation: "A barometer measures atmospheric pressure, useful for weather prediction.",
+      },
+      {
+        q: "What is the main cause of day and night?",
+        options: [
+          "Earth's revolution",
+          "Earth's rotation",
+          "Moon's orbit",
+          "Sun's rotation",
+        ],
+        correct: 1,
+        explanation: "Earth's rotation on its axis causes the cycle of day and night.",
+      },
+      {
+        q: "What type of rainfall occurs when warm air is forced to rise over mountains?",
+        options: [
+          "Convectional rainfall",
+          "Relief (orographic) rainfall",
+          "Cyclonic rainfall",
+          "Frontal rainfall",
+        ],
+        correct: 1,
+        explanation: "Relief rainfall occurs when moist air rises over mountains, cools, and condenses.",
+      },
+      {
+        q: "What is the capital city of Nigeria?",
+        options: [
+          "Lagos",
+          "Abuja",
+          "Kano",
+          "Ibadan",
+        ],
+        correct: 1,
+        explanation: "Abuja became Nigeria's capital in 1991, replacing Lagos.",
+      },
+      {
+        q: "Which of these is a renewable resource?",
+        options: [
+          "Coal",
+          "Petroleum",
+          "Solar energy",
+          "Natural gas",
+        ],
+        correct: 2,
+        explanation: "Solar energy is renewable as it comes from the sun and is virtually inexhaustible.",
+      },
+      {
+        q: "What does GPS stand for?",
+        options: [
+          "Global Positioning System",
+          "Geographic Position Satellite",
+          "Global Pointing Service",
+          "Geographic Positioning Service",
+        ],
+        correct: 0,
+        explanation: "GPS (Global Positioning System) uses satellites to determine precise locations on Earth.",
+      },
+    ],
+    commerce: [
+      {
+        q: "What is commerce?",
+        options: [
+          "Production of goods",
+          "Exchange of goods and services",
+          "Farming activities",
+          "Manufacturing only",
+        ],
+        correct: 1,
+        explanation: "Commerce involves all activities that facilitate the exchange of goods and services.",
+      },
+      {
+        q: "Which factor of production is represented by money invested in a business?",
+        options: [
+          "Land",
+          "Labor",
+          "Capital",
+          "Entrepreneurship",
+        ],
+        correct: 2,
+        explanation: "Capital refers to money, machinery, and equipment used to produce goods and services.",
+      },
+      {
+        q: "What is a sole proprietorship?",
+        options: [
+          "Business owned by many people",
+          "Business owned by one person",
+          "Government business",
+          "International business",
+        ],
+        correct: 1,
+        explanation: "A sole proprietorship is a business owned and managed by a single individual.",
+      },
+      {
+        q: "What is advertising?",
+        options: [
+          "Making products",
+          "Promoting products to potential customers",
+          "Storing goods",
+          "Transporting goods",
+        ],
+        correct: 1,
+        explanation: "Advertising is a form of marketing communication to promote products or services.",
+      },
+      {
+        q: "What is the document sent by a seller to a buyer stating goods sold and amount due?",
+        options: [
+          "Purchase order",
+          "Invoice",
+          "Receipt",
+          "Debit note",
+        ],
+        correct: 1,
+        explanation: "An invoice is a commercial document issued by a seller to a buyer, indicating products/services and payment amount.",
+      },
+      {
+        q: "Which type of trade occurs within a country's borders?",
+        options: [
+          "International trade",
+          "Home (internal) trade",
+          "Export trade",
+          "Import trade",
+        ],
+        correct: 1,
+        explanation: "Home or internal trade involves buying and selling goods within the same country.",
+      },
+      {
+        q: "What is a retailer?",
+        options: [
+          "Buys in bulk and sells to other traders",
+          "Sells directly to final consumers",
+          "Manufactures goods",
+          "Provides transport services",
+        ],
+        correct: 1,
+        explanation: "A retailer sells goods in small quantities directly to the final consumers.",
+      },
+      {
+        q: "What is insurance?",
+        options: [
+          "A form of banking",
+          "Protection against financial loss",
+          "A type of investment",
+          "Method of transport",
+        ],
+        correct: 1,
+        explanation: "Insurance is a contract providing financial protection or reimbursement against losses.",
+      },
+      {
+        q: "What is a partnership in business?",
+        options: [
+          "Business owned by government",
+          "Business owned by 2 to 20 people",
+          "Business owned by one person",
+          "International business agreement",
+        ],
+        correct: 1,
+        explanation: "A partnership is a business owned by 2 to 20 people who share profits and liabilities.",
+      },
+      {
+        q: "What does e-commerce mean?",
+        options: [
+          "Economic commerce",
+          "Electronic commerce",
+          "Efficient commerce",
+          "Export commerce",
+        ],
+        correct: 1,
+        explanation: "E-commerce refers to buying and selling goods/services over the internet.",
+      },
+    ],
+    history: [
+      {
+        q: "Which ancient Nigerian civilization was known for the Nok terracotta sculptures?",
+        options: [
+          "Benin Kingdom",
+          "Nok Culture",
+          "Oyo Empire",
+          "Kanem-Bornu",
+        ],
+        correct: 1,
+        explanation: "The Nok Culture (500 BCE - 200 CE) is famous for its terracotta sculptures.",
+      },
+      {
+        q: "Who was the first President of independent Nigeria?",
+        options: [
+          "Obafemi Awolowo",
+          "Nnamdi Azikiwe",
+          "Tafawa Balewa",
+          "Ahmadu Bello",
+        ],
+        correct: 1,
+        explanation: "Dr. Nnamdi Azikiwe became Nigeria's first President when Nigeria gained independence in 1960.",
+      },
+      {
+        q: "What year did Nigeria gain independence from Britain?",
+        options: [
+          "1957",
+          "1960",
+          "1963",
+          "1970",
+        ],
+        correct: 1,
+        explanation: "Nigeria gained independence from British colonial rule on October 1, 1960.",
+      },
+      {
+        q: "Which empire was known as the center of Islamic learning and trade in medieval West Africa?",
+        options: [
+          "Ghana Empire",
+          "Mali Empire",
+          "Songhai Empire",
+          "All of the above",
+        ],
+        correct: 3,
+        explanation: "The Ghana, Mali, and Songhai Empires were all centers of Islamic learning and trans-Saharan trade.",
+      },
+      {
+        q: "What was the main reason for European colonization of Africa?",
+        options: [
+          "To spread religion only",
+          "Economic exploitation and resources",
+          "To unite African kingdoms",
+          "Scientific research only",
+        ],
+        correct: 1,
+        explanation: "Economic exploitation, including access to raw materials and markets, drove European colonization.",
+      },
+      {
+        q: "Who was the prominent nationalist that led the movement for Nigerian independence?",
+        options: [
+          "Herbert Macaulay",
+          "All of the options",
+          "Obafemi Awolowo",
+          "Nnamdi Azikiwe",
+        ],
+        correct: 1,
+        explanation: "Multiple nationalists including Herbert Macaulay, Awolowo, and Azikiwe contributed to independence.",
+      },
+      {
+        q: "What system of government did Nigeria practice between 1960-1966?",
+        options: [
+          "Presidential system",
+          "Parliamentary system",
+          "Military rule",
+          "Federal system",
+        ],
+        correct: 1,
+        explanation: "Nigeria practiced the Westminster parliamentary system from independence until the 1966 coup.",
+      },
+      {
+        q: "Which city was the capital of the Benin Empire?",
+        options: [
+          "Lagos",
+          "Benin City",
+          "Ife",
+          "Warri",
+        ],
+        correct: 1,
+        explanation: "Benin City was the capital of the powerful Benin Empire, known for its art and bronze works.",
+      },
+      {
+        q: "What was the trans-Atlantic slave trade?",
+        options: [
+          "Trade within Africa",
+          "Forced transportation of Africans to the Americas",
+          "Trade between Europe and Asia",
+          "Voluntary migration",
+        ],
+        correct: 1,
+        explanation: "The trans-Atlantic slave trade forcibly transported millions of Africans to work in the Americas.",
+      },
+      {
+        q: "Which event marked the end of the Nigerian Civil War?",
+        options: [
+          "The 1966 coup",
+          "The surrender of Biafra in 1970",
+          "Independence in 1960",
+          "The 1979 election",
+        ],
+        correct: 1,
+        explanation: "The Nigerian Civil War (1967-1970) ended with Biafra's surrender on January 15, 1970.",
+      },
+    ],
+    crs: [
+      {
+        q: "Who is considered the founder of Christianity?",
+        options: [
+          "Paul",
+          "Jesus Christ",
+          "Peter",
+          "Moses",
+        ],
+        correct: 1,
+        explanation: "Jesus Christ is the central figure and founder of Christianity.",
+      },
+      {
+        q: "What are the first four books of the New Testament called?",
+        options: [
+          "Epistles",
+          "Gospels",
+          "Psalms",
+          "Prophecies",
+        ],
+        correct: 1,
+        explanation: "Matthew, Mark, Luke, and John are the four Gospels that record Jesus' life and teachings.",
+      },
+      {
+        q: "What event is celebrated at Easter?",
+        options: [
+          "Jesus' birth",
+          "Jesus' resurrection",
+          "Jesus' baptism",
+          "Pentecost",
+        ],
+        correct: 1,
+        explanation: "Easter celebrates the resurrection of Jesus Christ from the dead.",
+      },
+      {
+        q: "Who led the Israelites out of Egypt?",
+        options: [
+          "Abraham",
+          "Moses",
+          "David",
+          "Joseph",
+        ],
+        correct: 1,
+        explanation: "Moses led the Exodus, delivering Israelites from slavery in Egypt.",
+      },
+      {
+        q: "What is the Golden Rule in Christianity?",
+        options: [
+          "Love your enemies",
+          "Do to others as you would have them do to you",
+          "Pray daily",
+          "Keep the Sabbath",
+        ],
+        correct: 1,
+        explanation: "Jesus taught: 'Do to others as you would have them do to you' (Matthew 7:12).",
+      },
+      {
+        q: "What is the Trinity in Christian belief?",
+        options: [
+          "Three separate gods",
+          "Father, Son, and Holy Spirit as one God",
+          "Three apostles",
+          "Three churches",
+        ],
+        correct: 1,
+        explanation: "The Trinity refers to one God existing as three persons: Father, Son, and Holy Spirit.",
+      },
+      {
+        q: "Who wrote most of the epistles in the New Testament?",
+        options: [
+          "Peter",
+          "Paul",
+          "John",
+          "James",
+        ],
+        correct: 1,
+        explanation: "Paul (Saul of Tarsus) authored many letters (epistles) to early Christian communities.",
+      },
+      {
+        q: "What sacrament commemorates Jesus' last supper?",
+        options: [
+          "Baptism",
+          "Holy Communion (Eucharist)",
+          "Confirmation",
+          "Marriage",
+        ],
+        correct: 1,
+        explanation: "Holy Communion (Eucharist) commemorates Christ's sacrifice through bread and wine.",
+      },
+      {
+        q: "What is the first book of the Bible?",
+        options: [
+          "Exodus",
+          "Genesis",
+          "Psalms",
+          "Matthew",
+        ],
+        correct: 1,
+        explanation: "Genesis is the first book, describing creation and early human history.",
+      },
+      {
+        q: "What virtue is described as the greatest in 1 Corinthians 13?",
+        options: [
+          "Faith",
+          "Hope",
+          "Love (Charity)",
+          "Wisdom",
+        ],
+        correct: 2,
+        explanation: "Paul writes that of faith, hope, and love, the greatest is love (1 Cor 13:13).",
+      },
+    ],
+    irs: [
+      {
+        q: "What is the holy book of Islam called?",
+        options: [
+          "Bible",
+          "Qur'an",
+          "Torah",
+          "Hadith",
+        ],
+        correct: 1,
+        explanation: "The Qur'an is Islam's holy book, believed to be Allah's word revealed to Muhammad.",
+      },
+      {
+        q: "How many times a day do Muslims pray (Salah)?",
+        options: [
+          "Three",
+          "Five",
+          "Seven",
+          "Once",
+        ],
+        correct: 1,
+        explanation: "Muslims pray five times daily: Fajr, Dhuhr, Asr, Maghrib, and Isha.",
+      },
+      {
+        q: "What is the month of fasting in Islam called?",
+        options: [
+          "Muharram",
+          "Ramadan",
+          "Shawwal",
+          "Dhul-Hijjah",
+        ],
+        correct: 1,
+        explanation: "Ramadan is the ninth month when Muslims fast from dawn to sunset.",
+      },
+      {
+        q: "What is the Islamic declaration of faith called?",
+        options: [
+          "Salah",
+          "Shahadah",
+          "Zakat",
+          "Hajj",
+        ],
+        correct: 1,
+        explanation: "The Shahadah (There is no god but Allah, Muhammad is His messenger) is the first pillar.",
+      },
+      {
+        q: "What is Zakat?",
+        options: [
+          "Prayer",
+          "Charitable giving (alms)",
+          "Fasting",
+          "Pilgrimage",
+        ],
+        correct: 1,
+        explanation: "Zakat is the obligatory giving of a portion of wealth to the poor (2.5% for most Muslims).",
+      },
+      {
+        q: "What is the Ka'bah?",
+        options: [
+          "A mosque in Medina",
+          "The sacred cubic structure in Makkah",
+          "A holy mountain",
+          "An Islamic school",
+        ],
+        correct: 1,
+        explanation: "The Ka'bah is the sacred cubic structure in Makkah toward which Muslims pray.",
+      },
+      {
+        q: "What is the pilgrimage to Makkah called?",
+        options: [
+          "Umrah",
+          "Hajj",
+          "Ziyarah",
+          "Hijrah",
+        ],
+        correct: 1,
+        explanation: "Hajj is the obligatory pilgrimage to Makkah that every able Muslim must perform once.",
+      },
+      {
+        q: "Who is considered the last prophet in Islam?",
+        options: [
+          "Moses",
+          "Jesus",
+          "Muhammad",
+          "Abraham",
+        ],
+        correct: 2,
+        explanation: "Muhammad (PBUH) is regarded as the final prophet and messenger of Allah.",
+      },
+      {
+        q: "What are the sayings and actions of Prophet Muhammad called?",
+        options: [
+          "Qur'an",
+          "Sunnah/Hadith",
+          "Fatwa",
+          "Shariah",
+        ],
+        correct: 1,
+        explanation: "Hadith are the recorded sayings, actions, and approvals of Prophet Muhammad.",
+      },
+      {
+        q: "What is the Islamic law derived from the Qur'an and Sunnah called?",
+        options: [
+          "Fiqh",
+          "Shariah",
+          "Tafsir",
+          "Ijma",
+        ],
+        correct: 1,
+        explanation: "Shariah is Islamic law based on the Qur'an and Sunnah, guiding all aspects of life.",
       },
     ],
   };

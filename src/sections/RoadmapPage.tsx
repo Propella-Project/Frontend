@@ -1,9 +1,11 @@
 import { useStore } from "@/store";
+import { usePaymentStatus } from "@/hooks/usePayment";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { PaymentModal } from "@/features/payment/PaymentModal";
 import {
   Lock,
   CheckCircle,
@@ -13,11 +15,15 @@ import {
   Flame,
   Target,
   AlertCircle,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export function RoadmapPage() {
   const { roadmap, user, subjects, startQuiz, completeTask } = useStore();
+  const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   if (!user) return null;
 
@@ -49,8 +55,42 @@ export function RoadmapPage() {
     return subject?.name || "Unknown";
   };
 
+  // Handle payment success
+  const handlePaymentSuccess = () => {
+    toast.success("Payment successful! Welcome to PROPELLA!");
+  };
+
   return (
     <div className="min-h-screen bg-[#0F0F11] p-4 pb-24">
+      {/* Payment Required Banner - Show if not paid */}
+      {!isPaid && !isCheckingPayment && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4"
+        >
+          <Card className="bg-gradient-to-r from-[#6D28D9] to-[#4C1D95] border-none p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                <Crown className="w-5 h-5 text-[#CCFF00]" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-white">Unlock Full Access</p>
+                <p className="text-xs text-white/70">
+                  Complete payment to access your personalized roadmap
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowPaymentModal(true)}
+                className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold text-sm"
+              >
+                Pay Now
+              </Button>
+            </div>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -357,6 +397,54 @@ export function RoadmapPage() {
           </div>
         </Card>
       </motion.div>
+
+      {/* Locked Content Overlay - Show if not paid */}
+      {!isPaid && !isCheckingPayment && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-[#0F0F11]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          style={{ top: '60px' }}
+        >
+          <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 max-w-md w-full text-center">
+            <div className="w-20 h-20 bg-[#6D28D9]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Lock className="w-10 h-10 text-[#6D28D9]" />
+            </div>
+            <h2 className="text-2xl font-bold mb-3">Roadmap Locked</h2>
+            <p className="text-[#9CA3AF] mb-6">
+              Complete payment to unlock your personalized study roadmap and start your JAMB preparation journey.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-sm text-[#9CA3AF] justify-center">
+                <CheckCircle className="w-4 h-4 text-[#CCFF00]" />
+                <span>Personalized AI-generated roadmap</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-[#9CA3AF] justify-center">
+                <CheckCircle className="w-4 h-4 text-[#CCFF00]" />
+                <span>Daily study tasks and quizzes</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-[#9CA3AF] justify-center">
+                <CheckCircle className="w-4 h-4 text-[#CCFF00]" />
+                <span>Progress tracking & analytics</span>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowPaymentModal(true)}
+              className="w-full mt-6 bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
+            >
+              <Crown className="w-4 h-4 mr-2" />
+              Unlock Full Access
+            </Button>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useStore } from '@/store';
-import { Home, Map, MessageCircle, CheckSquare, BookOpen } from 'lucide-react';
+import { Home, Map, MessageCircle, CheckSquare, BookOpen, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function BottomNav() {
@@ -11,6 +11,7 @@ export function BottomNav() {
     { id: 'tutor', icon: MessageCircle, label: 'Tutor' },
     { id: 'tasks', icon: CheckSquare, label: 'Tasks' },
     { id: 'catalog', icon: BookOpen, label: 'Practice' },
+    { id: 'profile', icon: User, label: 'Profile' },
   ] as const;
 
   const pendingCount = assignments.filter((a) => a.status === 'pending').length +

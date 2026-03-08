@@ -3,13 +3,13 @@ import { useStore } from "@/store";
 import { useAppStore } from "@/state/app.store";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { QuizInterface } from "@/sections/QuizInterface";
+import { diagnosticQuizService } from "@/services/diagnosticQuiz.service";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Progress } from "@/components/ui/progress";
 
 import { JAMB_SUBJECTS, PERSONALITIES } from "@/types";
 import type { LearningFormat, VoicePreference, PersonalityType } from "@/types";
@@ -39,7 +39,6 @@ export function OnboardingFlow() {
   const {
     setUser: setStoreUser,
     setSelectedSubjects: setStoreSelectedSubjects,
-    startQuiz: startStoreQuiz,
     completeOnboarding: completeStoreOnboarding,
     completeDiagnosticQuiz: completeStoreDiagnosticQuiz,
     currentQuiz,
@@ -58,6 +57,8 @@ export function OnboardingFlow() {
   const [stepIndex, setStepIndex] = useState(0);
   const [showDiagnosticResults, setShowDiagnosticResults] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingMessage, setProcessingMessage] = useState("Preparing your quiz...");
   const [diagnosticScore, setDiagnosticScore] = useState(0);
   const [diagnosticResults, setDiagnosticResultsState] = useState<{
     subjectScores: Record<string, number>;
@@ -229,6 +230,8 @@ export function OnboardingFlow() {
 
   const handleStartDiagnosticQuiz = async () => {
     setIsProcessing(true);
+    setProcessingProgress(0);
+    setProcessingMessage("Preparing your personalized diagnostic quiz...");
     
     // Save preferences to local store
     setStoreUser({
@@ -237,45 +240,77 @@ export function OnboardingFlow() {
       voicePreference: voice,
     });
 
-    // Prepare data for API (commented out - backend endpoints not ready yet)
-    // const subjectNames = selectedSubjectIds
-    //   .slice(0, 4)
-    //   .map((id) => JAMB_SUBJECTS.find((s) => s.id === id)?.name || id);
+    try {
+      // Get selected subjects
+      const selectedSubjects = JAMB_SUBJECTS.filter(s => 
+        selectedSubjectIds.includes(s.id)
+      ).slice(0, 4);
 
-    // API calls commented out - backend endpoints not ready yet
-    // Step 1: Save exam profile (commented out)
-    // const profileSuccess = await saveExamProfile({
-    //   nickname: nickname,
-    //   exam_date: examDate,
-    //   daily_hours: dailyHours,
-    //   study_hours_per_day: dailyHours,
-    //   personality: personality,
-    //   ai_tutor_selected: PERSONALITIES[personality].name,
-    //   ai_voice_enabled: voice === "female" || voice === "male",
-    // });
-    // if (!profileSuccess) {
-    //   toast.error("Failed to save profile. Please try again.");
-    //   setIsProcessing(false);
-    //   return;
-    // }
+      if (selectedSubjects.length === 0) {
+        toast.error("Please select at least one subject");
+        setIsProcessing(false);
+        return;
+      }
 
-    // Step 2: Save subjects (commented out)
-    // const subjectsSuccess = await saveSubjects({
-    //   subjects: subjectNames,
-    // });
-    // if (!subjectsSuccess) {
-    //   toast.error("Failed to save subjects. Please try again.");
-    //   setIsProcessing(false);
-    //   return;
-    // }
+      // Generate quiz questions with AI fallback
+      setProcessingMessage("Generating AI-powered questions...");
+      const result = await diagnosticQuizService.generateDiagnosticQuizWithProcessing(
+        selectedSubjects,
+        3, // 3 questions per subject
+        (progress) => setProcessingProgress(progress)
+      );
 
-    // Step 3: Use templated questions (API endpoint not ready yet)
-    const subjectsToQuiz = selectedSubjectIds.slice(0, 4);
-    startStoreQuiz(subjectsToQuiz[0], null, "diagnostic", subjectsToQuiz);
+      console.log(`[Onboarding] Quiz generated from source: ${result.source}`);
+      
+      if (result.questions.length === 0) {
+        toast.error("Failed to generate quiz questions. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
 
-    setIsProcessing(false);
-    setCurrentStep("diagnostic");
-    setStepIndex(2);
+      // Store generated questions in localStorage for backup
+      localStorage.setItem('diagnostic_questions', JSON.stringify(result.questions));
+
+      // Show source notification
+      if (result.source === "template") {
+        toast.info("Using practice questions while AI service is warming up");
+      }
+
+      // Start the quiz with generated questions
+      setProcessingMessage("Loading quiz interface...");
+      
+      // Pass questions to the quiz interface via the store
+      // We'll set up the quiz in the next effect
+      const subjectsToQuiz = selectedSubjectIds.slice(0, 4);
+      
+      // Create a custom quiz setup
+      const store = useStore.getState();
+      
+      // Set up quiz with generated questions
+      // Note: We use type assertion since we're creating a partial quiz object
+      // The store will handle the full initialization
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (store as any).currentQuiz = {
+        id: `diagnostic_${Date.now()}`,
+        subjectId: subjectsToQuiz[0],
+        topicId: null,
+        type: "diagnostic",
+        questions: result.questions,
+        answers: [],
+        score: 0,
+        totalQuestions: result.questions.length,
+        completed: false,
+      };
+
+      setIsProcessing(false);
+      setCurrentStep("diagnostic");
+      setStepIndex(2);
+      
+    } catch (error) {
+      console.error("[Onboarding] Failed to start diagnostic quiz:", error);
+      toast.error("Failed to start quiz. Please try again.");
+      setIsProcessing(false);
+    }
   };
 
   const handleBack = () => {
@@ -295,7 +330,7 @@ export function OnboardingFlow() {
     );
   };
 
-  // Show processing animation
+  // Show processing animation with progress
   if (isProcessing) {
     return (
       <div className="min-h-screen bg-[#0F0F11] relative overflow-hidden">
@@ -318,34 +353,38 @@ export function OnboardingFlow() {
               className="w-20 h-20 border-4 border-[#2A2A2E] border-t-[#CCFF00] border-r-[#6D28D9] rounded-full mx-auto mb-6"
             />
 
-            <h2 className="text-2xl font-bold mb-2">Processing Results...</h2>
-            <p className="text-[#9CA3AF] mb-8">
-              Analyzing your strengths and weaknesses
-            </p>
-
-            {/* Progress Dots */}
-            <div className="flex justify-center gap-2">
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0.3 }}
-                  animate={{ opacity: 1 }}
-                  transition={{
-                    duration: 0.5,
-                    repeat: Infinity,
-                    delay: i * 0.3,
-                  }}
-                  className="w-3 h-3 rounded-full bg-[#CCFF00]"
-                />
-              ))}
-            </div>
+            <h2 className="text-2xl font-bold mb-2">Generating Your Quiz...</h2>
+            <p className="text-[#9CA3AF] mb-4">{processingMessage}</p>
 
             {/* Progress Bar */}
-            <div className="mt-8 w-64 mx-auto">
-              <Progress value={60} className="h-2" />
+            <div className="mt-6 w-72 mx-auto">
+              <div className="h-2 bg-[#2A2A2E] rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-[#6D28D9] to-[#CCFF00]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${processingProgress}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
               <p className="text-sm text-[#9CA3AF] mt-2">
-                Generating your roadmap...
+                {processingProgress}% complete
               </p>
+            </div>
+
+            {/* Feature indicators */}
+            <div className="mt-8 flex justify-center gap-4">
+              {["AI Analysis", "Smart Questions", "Personalized"].map((feature, i) => (
+                <motion.div
+                  key={feature}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.2 }}
+                  className="flex items-center gap-2 text-xs text-[#9CA3AF]"
+                >
+                  <div className="w-2 h-2 rounded-full bg-[#CCFF00]" />
+                  {feature}
+                </motion.div>
+              ))}
             </div>
           </motion.div>
         </div>
@@ -591,8 +630,8 @@ export function OnboardingFlow() {
                   <BookOpen size={16} />
                   Select Your JAMB Subjects (exactly 4)
                 </Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {JAMB_SUBJECTS.slice(0, 8).map((subject) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#6D28D9] scrollbar-track-[#2A2A2E]">
+                  {JAMB_SUBJECTS.map((subject) => (
                     <Card
                       key={subject.id}
                       onClick={() => toggleSubject(subject.id)}

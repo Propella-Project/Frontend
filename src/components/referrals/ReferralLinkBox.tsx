@@ -1,19 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Copy, Check, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUserStore } from "@/state/user.store";
+import { buildReferralLink } from "@/utils/referral";
 import { toast } from "sonner";
 
 export function ReferralLinkBox() {
-  const { referralCode, nickname, user_id } = useUserStore();
+  const { referralCode, nickname, user_id, fetchReferralStats } = useUserStore();
   const [copied, setCopied] = useState(false);
 
-  // Generate referral link matching landing page format
-  const referralLink = `https://propella-lp.vercel.app/?ref=${referralCode || "REF123"}&name=${encodeURIComponent(nickname || "User")}&email=${encodeURIComponent(user_id ? `${user_id}@propella.app` : "user@propella.app")}`;
+  // Fetch live referral stats on mount to get the latest referral code
+  useEffect(() => {
+    fetchReferralStats();
+  }, [fetchReferralStats]);
+
+  // Get user email from localStorage if available
+  const userData = JSON.parse(localStorage.getItem("user") || "{}");
+  const userEmail = userData.email || "";
+
+  // Generate referral link using the user's personal referral code from backend
+  // Falls back to a placeholder if not yet loaded
+  const effectiveReferralCode = referralCode || "";
+  const displayName = nickname || user_id || "User";
+  
+  const referralLink = effectiveReferralCode 
+    ? buildReferralLink(effectiveReferralCode, displayName, userEmail)
+    : "Loading your referral link...";
 
   const handleCopy = async () => {
+    if (!effectiveReferralCode) {
+      toast.error("Referral code not available yet. Please try again.");
+      return;
+    }
+    
     try {
       await navigator.clipboard.writeText(referralLink);
       setCopied(true);
@@ -40,13 +61,15 @@ export function ReferralLinkBox() {
           <Input
             value={referralLink}
             readOnly
-            className="pl-10 bg-[#0F0F11] border-[#2A2A2E] text-[#9CA3AF] text-sm font-mono truncate"
+            disabled={!effectiveReferralCode}
+            className="pl-10 bg-[#0F0F11] border-[#2A2A2E] text-[#9CA3AF] text-sm font-mono truncate disabled:opacity-50"
           />
         </div>
         
         <Button
           onClick={handleCopy}
-          className={`min-w-[100px] transition-all duration-300 ${
+          disabled={!effectiveReferralCode}
+          className={`min-w-[100px] transition-all duration-300 disabled:opacity-50 ${
             copied 
               ? "bg-[#10B981] hover:bg-[#10B981]" 
               : "bg-[#6D28D9] hover:bg-[#5B21B6]"
@@ -67,7 +90,7 @@ export function ReferralLinkBox() {
       </div>
 
       <p className="text-xs text-[#9CA3AF]">
-        Share this link with friends. When they join, you earn points!
+        Share this link with friends. When they join using your code <span className="text-[#CCFF00] font-medium">{effectiveReferralCode || "..."}</span>, you earn points!
       </p>
     </motion.div>
   );

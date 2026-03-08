@@ -1,79 +1,128 @@
 /**
  * API Endpoints Configuration
  * 
- * This file centralizes all API endpoints for easy switching between
- * mock and production endpoints.
+ * This file centralizes all API endpoints for the Propella backend.
+ * Updated to match the Django REST API backend specification.
+ * 
+ * Base API URL is configured in env.ts (VITE_API_BASE_URL)
+ * Default: https://propella-api.vercel.app/api
+ * 
+ * All paths here are relative to the base URL.
  */
 
-const BASE_URL = "https://propella-api.vercel.app";
-
 export const ENDPOINTS = {
-  // Authentication (already implemented)
+  // Authentication (JWT)
   auth: {
-    login: `${BASE_URL}/auth/login/`,
-    signup: `${BASE_URL}/auth/signup/`,
-    refresh: `${BASE_URL}/auth/refresh/`,
-    logout: `${BASE_URL}/auth/logout/`,
+    // POST - Login to get access/refresh tokens
+    login: `/accounts/token/`,
+    // POST - Refresh access token
+    refresh: `/accounts/token/refresh/`,
+    // POST - Register new user
+    register: `/accounts/register/`,
+    // POST - Verify email with code
+    verifyEmail: `/accounts/verify-email/`,
+    // POST - Resend verification code
+    resendCode: `/accounts/resend-code/`,
+    // POST - Request password reset
+    forgotPassword: `/accounts/forgot-password/`,
+    // PUT/PATCH - Change password (authenticated)
+    changePassword: `/accounts/change-password/`,
+    // POST - Reset password with uid/token
+    resetPassword: (uid: string, token: string) => `/accounts/reset-password/${uid}/${token}/`,
   },
 
-  // Onboarding
+  // User Management
+  users: {
+    // GET - Get all users (admin)
+    allUsers: `/accounts/all-users/`,
+    // PUT/PATCH - Edit user by ID
+    editUser: (userId: string) => `/accounts/edit-user/${userId}/`,
+  },
+
+  // Exam Profile
+  examProfile: {
+    // POST - Create exam profile
+    create: `/accounts/create-exam-profile/`,
+    // PUT/PATCH - Edit exam profile
+    edit: (profileId: string) => `/accounts/edit-exam-profile/${profileId}/`,
+  },
+
+  // Referrals
+  referrals: {
+    // GET - Get referral stats for current user
+    getStats: `/accounts/referrals/`,
+  },
+
+  // Subscriptions
+  subscriptions: {
+    // GET - Get available subscription plans (requires auth)
+    plans: `/accounts/plans`,
+    // POST - Subscribe to a plan (requires auth, plan_id in body)
+    subscribe: `/accounts/subscribe`,
+    // GET - Verify subscription after Flutterwave payment (requires transaction_id)
+    verify: `/accounts/verify-subscription`,
+  },
+
+  // Onboarding (legacy - may need updates based on backend)
   onboarding: {
-    examProfile: `${BASE_URL}/api/accounts/create-exam-profile/`,
-    userSubjects: `${BASE_URL}/user-subjects/`,
+    examProfile: `/accounts/create-exam-profile/`,
+    userSubjects: `/user-subjects/`,
   },
 
-  // Dashboard
-  dashboard: {
-    get: `${BASE_URL}/dashboard/`,
-  },
+  // Note: No dedicated dashboard endpoint - data comes from subscribe + referrals endpoints
 
-  // Diagnostic Quiz
+  // Diagnostic Quiz (legacy - may need updates based on backend)
   diagnostic: {
-    getQuiz: (subject: string) => `${BASE_URL}/diagnostic-quiz/?subject=${subject}`,
-    submitResults: `${BASE_URL}/quiz-results/`,
+    getQuiz: (subject: string) => `/diagnostic-quiz/?subject=${subject}`,
+    submitResults: `/quiz-results/`,
   },
 
-  // Roadmap
+  // Roadmap (legacy - may need updates based on backend)
   roadmap: {
-    getToday: `${BASE_URL}/roadmap/today/`,
-    getByDay: (dayId: string) => `${BASE_URL}/roadmap/day/${dayId}/`,
-    completeTask: (taskId: string) => `${BASE_URL}/roadmap/tasks/${taskId}/complete/`,
+    getToday: `/roadmap/today/`,
+    getByDay: (dayId: string) => `/roadmap/day/${dayId}/`,
+    completeTask: (taskId: string) => `/roadmap/tasks/${taskId}/complete/`,
   },
 
-  // Streak
+  // Streak (legacy - may need updates based on backend)
   streak: {
-    get: `${BASE_URL}/streak/`,
-    update: `${BASE_URL}/update-streak/`,
+    get: `/streak/`,
+    update: `/update-streak/`,
   },
 
-  // Performance
+  // Performance (legacy - may need updates based on backend)
   performance: {
-    getGraph: `${BASE_URL}/performance-graph/`,
-    getLevel: `${BASE_URL}/user-level/`,
+    getGraph: `/performance-graph/`,
+    getLevel: `/user-level/`,
   },
 
-  // AI Tutor
+  // AI Tutor (legacy - may need updates based on backend)
   tutor: {
-    chat: `${BASE_URL}/ai-tutor/chat/`,
+    chat: `/ai-tutor/chat/`,
   },
 
-  // Assignments & Weak Topics
+  // Assignments & Weak Topics (legacy - may need updates based on backend)
   learning: {
-    weakTopics: `${BASE_URL}/weak-topics/`,
-    assignments: `${BASE_URL}/assignments/`,
-    completeAssignment: (id: string) => `${BASE_URL}/assignments/${id}/complete/`,
+    weakTopics: `/weak-topics/`,
+    assignments: `/assignments/`,
+    completeAssignment: (id: string) => `/assignments/${id}/complete/`,
   },
 
-  // Payments (Flutterwave)
+  // Payments (Flutterwave) (legacy - may need updates based on backend)
   payments: {
-    initiate: `${BASE_URL}/payments/initiate/`,
-    verify: `${BASE_URL}/payments/verify/`,
+    initiate: `/payments/initiate/`,
+    verify: `/payments/verify/`,
   },
 
-  // Settings
+  // Settings (legacy - may need updates based on backend)
   settings: {
-    updateProfile: `${BASE_URL}/profile/update/`,
-    notifications: `${BASE_URL}/notifications/`,
+    updateProfile: `/profile/update/`,
+    notifications: `/notifications/`,
+  },
+
+  // API Schema
+  schema: {
+    get: `/schema/`,
   },
 } as const;
 

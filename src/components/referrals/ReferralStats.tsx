@@ -1,17 +1,27 @@
 import { motion } from "framer-motion";
 import { User, Ticket, Star, Users, Wallet } from "lucide-react";
 import { useUserStore } from "@/state/user.store";
+import { useEffect } from "react";
 
 export function ReferralStats() {
-  const { nickname, referralCode, referralPoints, totalReferrals } = useUserStore();
+  const { username, nickname, user_id, referralCode, referralPoints, totalReferrals, fetchReferralStats, refreshUserData } = useUserStore();
   
-  // Calculate earnings: 1 point = ₦10
-  const estimatedEarnings = referralPoints * 10;
+  // Fetch live referral stats and user data on mount
+  useEffect(() => {
+    fetchReferralStats();
+    refreshUserData();
+  }, [fetchReferralStats, refreshUserData]);
+  
+  // Calculate earnings: 10 points = ₦30 (1 point = ₦3)
+  const estimatedEarnings = referralPoints * 3;
+
+  // Get username from backend (username > nickname > user_id > "User")
+  const displayName = username || nickname || user_id || "User";
 
   const stats = [
     {
-      label: "Nickname",
-      value: nickname || "User",
+      label: "Username",
+      value: displayName,
       icon: User,
       color: "text-[#3B82F6]",
       bgColor: "bg-blue-500/10",
@@ -85,9 +95,9 @@ export function ReferralStats() {
         className="mt-3 p-3 bg-[#1A1A1E] rounded-xl border border-[#2A2A2E]"
       >
         <p className="text-xs text-[#9CA3AF] text-center">
-          <span className="text-[#CCFF00]">10 referrals</span> ={" "}
+          <span className="text-[#CCFF00]">1 referral</span> ={" "}
           <span className="text-[#CCFF00]">10 points</span> ={" "}
-          <span className="text-[#CCFF00]">₦100</span>
+          <span className="text-[#CCFF00]">₦30</span>
         </p>
       </motion.div>
     </div>

@@ -23,6 +23,7 @@ import { PERSONALITIES } from '@/types';
 import type { ChatMessage } from '@/types';
 import { toast } from 'sonner';
 import { useAIVoicePlayer } from '@/services/aiVoicePlayer';
+import { tutorApi } from '@/api/tutor.api';
 
 export function TutorPage() {
   const { user, chatMessages, addMessage, subjects, addAssignment } = useStore();
@@ -134,7 +135,7 @@ export function TutorPage() {
     return `${responses[Math.floor(Math.random() * responses.length)]}\n\n${metaphor}\n\nKeep those questions coming - learning is a journey, and I'm here to guide you every step of the way!\n\n*${humor}*`;
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage: ChatMessage = {
@@ -150,23 +151,26 @@ export function TutorPage() {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI thinking and typing
-    setTimeout(() => {
-      const aiResponse: ChatMessage = {
+    try {
+      // Call AI Engine for real response
+      const aiResponse = await tutorApi.sendMessage({
+        message: input,
+      });
+
+      const aiMessage: ChatMessage = {
         id: `msg_${Date.now() + 1}`,
         userId: user.id || 'user_1',
         role: 'ai',
-        content: generateAIResponse(input),
+        content: aiResponse.response,
         timestamp: new Date(),
         type: 'text',
       };
-      addMessage(aiResponse);
-      setIsTyping(false);
+      addMessage(aiMessage);
       
       // Auto-play if voice mode is enabled
       if (isVoiceMode && voicePlayer.isSupported()) {
-        setSpeakingMessageId(aiResponse.id);
-        voicePlayer.speak(aiResponse.content, {
+        setSpeakingMessageId(aiMessage.id);
+        voicePlayer.speak(aiMessage.content, {
           gender: user.voicePreference === 'male' ? 'male' : 'female',
           rate: 0.9,
           pitch: 1,
@@ -174,7 +178,22 @@ export function TutorPage() {
           onError: () => setSpeakingMessageId(null),
         });
       }
-    }, 1500);
+    } catch (error) {
+      console.error("[Tutor] AI request failed:", error);
+      // Fallback to template response if AI fails
+      const fallbackMessage: ChatMessage = {
+        id: `msg_${Date.now() + 1}`,
+        userId: user.id || 'user_1',
+        role: 'ai',
+        content: generateAIResponse(input),
+        timestamp: new Date(),
+        type: 'text',
+      };
+      addMessage(fallbackMessage);
+      toast.error("AI service temporarily unavailable. Using offline mode.");
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

@@ -262,7 +262,7 @@ To use mock endpoints during development:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_BASE_URL` | `https://propella-api.vercel.app` | API base URL |
+| `VITE_API_BASE_URL` | `https://propella-api.vercel.app/api` | API base URL |
 | `VITE_API_TIMEOUT` | `30000` | Request timeout in ms |
 
 ## Key Features

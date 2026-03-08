@@ -1,11 +1,15 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '@/store';
 import { useUserStore } from '@/state/user.store';
+import { usePaymentStatus } from '@/hooks/usePayment';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { SettingsDropdown } from '@/features/settings/SettingsDropdown';
+import { PaymentModal } from '@/features/payment/PaymentModal';
+import { ReferralPanel } from '@/components/referrals/ReferralPanel';
 import {
   Flame,
   Target,
@@ -18,16 +22,47 @@ import {
   BookOpen,
   Star,
   Trophy,
+  Lock,
+  Crown,
+  Gift,
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { PERSONALITIES, RANKS } from '@/types';
 import { getGreeting } from '@/utils/greeting';
+import { toast } from 'sonner';
 
 export function Dashboard() {
-  const { user, gamification, roadmap, assignments, quizHistory, setCurrentPage } = useStore();
-  const { nickname } = useUserStore();
+  const { user, gamification, roadmap, assignments, quizHistory, setCurrentPage, resetApp } = useStore();
+  const { 
+    nickname, 
+    referralPoints, 
+    fetchReferralStats,
+    refreshUserData 
+  } = useUserStore();
+  
+  const { isPaid, checkSubscriptionStatus } = usePaymentStatus();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showReferralPanel, setShowReferralPanel] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(true);
+
+  // Fetch referral stats and user data on mount
+  useEffect(() => {
+    fetchReferralStats();
+    refreshUserData();
+    checkSubscriptionStatus().finally(() => setIsCheckingPayment(false));
+  }, [fetchReferralStats, refreshUserData, checkSubscriptionStatus]);
 
   if (!user) return null;
+
+  // Get display name - fallback chain for better UX
+  const displayName = useMemo(() => {
+    const name = nickname || user.nickname || '';
+    // If name is empty or contains "student" (case insensitive), use a friendly fallback
+    if (!name || name.toLowerCase().includes('student')) {
+      return 'Learner';
+    }
+    return name;
+  }, [nickname, user.nickname]);
 
   const personality = PERSONALITIES[user.personality];
   const currentDay = roadmap.find((d) => d.isUnlocked && !d.isCompleted);
@@ -36,7 +71,6 @@ export function Dashboard() {
   
   // Get Nigeria time greeting
   const greeting = getGreeting();
-
 
   // Get today's tasks
   const todayTasks = currentDay?.tasks || [];
@@ -66,8 +100,43 @@ export function Dashboard() {
   const rankInfo = RANKS.find((r) => r.name === gamification.rank) || RANKS[0];
   const levelProgress = (gamification.points / gamification.nextLevelPoints) * 100;
 
+  // Handle payment success
+  const handlePaymentSuccess = () => {
+    toast.success("Payment successful! Welcome to PROPELLA!");
+    checkSubscriptionStatus();
+  };
+
   return (
     <div className="min-h-screen bg-[#0F0F11] p-4 pb-24">
+      {/* Payment Required Banner - Show if not paid */}
+      {!isPaid && !isCheckingPayment && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4"
+        >
+          <Card className="bg-gradient-to-r from-[#6D28D9] to-[#4C1D95] border-none p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                <Crown className="w-5 h-5 text-[#CCFF00]" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-white">Unlock Full Access</p>
+                <p className="text-xs text-white/70">
+                  Complete payment to access your personalized roadmap
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowPaymentModal(true)}
+                className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold text-sm"
+              >
+                Pay Now
+              </Button>
+            </div>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -76,7 +145,7 @@ export function Dashboard() {
       >
         <div>
           <p className="text-[#9CA3AF] text-sm">{greeting},</p>
-          <h1 className="text-2xl font-bold">{nickname || user.nickname}!</h1>
+          <h1 className="text-2xl font-bold">{displayName}!</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 bg-[#1A1A1E] px-3 py-2 rounded-full">
@@ -88,6 +157,18 @@ export function Dashboard() {
           </div>
           {/* Settings Dropdown */}
           <SettingsDropdown />
+          
+          {/* Hidden Reset Button - triple click to reset */}
+          <button
+            onClick={() => {
+              if (confirm('Reset app and start onboarding from beginning?')) {
+                resetApp();
+                window.location.reload();
+              }
+            }}
+            className="w-2 h-2 bg-transparent hover:bg-red-500/20 rounded-full"
+            title="Triple click to reset app"
+          />
         </div>
       </motion.header>
 
@@ -139,7 +220,7 @@ export function Dashboard() {
         </Card>
       </motion.div>
 
-      {/* Today's Mission */}
+      {/* Today's Mission - Locked if not paid */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -153,57 +234,84 @@ export function Dashboard() {
           </Badge>
         </div>
 
-        <Card className="bg-gradient-to-br from-[#6D28D9] to-[#4C1D95] border-none p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-white/80 text-sm mb-1">Ready to launch?</p>
-              <h3 className="text-xl font-bold">
-                {pendingTasks.length > 0
-                  ? `You have ${pendingTasks.length} tasks pending`
-                  : 'All tasks completed! 🎉'}
-              </h3>
-            </div>
-            <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
-              <Rocket className="w-6 h-6 text-[#CCFF00]" />
-            </div>
-          </div>
-
-          <div className="space-y-2 mb-4">
-            {todayTasks.slice(0, 3).map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 text-sm"
-              >
-                <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                    task.status === 'completed'
-                      ? 'bg-[#10B981]'
-                      : 'bg-white/20'
-                  }`}
-                >
-                  {task.status === 'completed' && <Zap className="w-3 h-3" />}
-                </div>
-                <span className={task.status === 'completed' ? 'line-through opacity-60' : ''}>
-                  {task.title}
-                </span>
+        <Card className={`border-none p-5 ${
+          isPaid 
+            ? 'bg-gradient-to-br from-[#6D28D9] to-[#4C1D95]' 
+            : 'bg-[#1A1A1E] border border-[#2A2A2E]'
+        }`}>
+          {!isPaid ? (
+            // Locked State
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-[#2A2A2E] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-[#9CA3AF]" />
               </div>
-            ))}
-          </div>
+              <h3 className="text-xl font-bold mb-2">Roadmap Locked</h3>
+              <p className="text-[#9CA3AF] mb-4 max-w-xs mx-auto">
+                Complete payment to unlock your personalized study roadmap and start learning
+              </p>
+              <Button
+                onClick={() => setShowPaymentModal(true)}
+                className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
+              >
+                <Crown className="w-4 h-4 mr-2" />
+                Unlock Full Access
+              </Button>
+            </div>
+          ) : (
+            // Unlocked State
+            <>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-white/80 text-sm mb-1">Ready to launch?</p>
+                  <h3 className="text-xl font-bold">
+                    {pendingTasks.length > 0
+                      ? `You have ${pendingTasks.length} tasks pending`
+                      : 'All tasks completed! 🎉'}
+                  </h3>
+                </div>
+                <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
+                  <Rocket className="w-6 h-6 text-[#CCFF00]" />
+                </div>
+              </div>
 
-          <Button
-            onClick={() => setCurrentPage('roadmap')}
-            className="w-full bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
-          >
-            {completedTasks.length === todayTasks.length && todayTasks.length > 0
-              ? 'Review Today'
-              : 'Start Learning'}
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </Button>
+              <div className="space-y-2 mb-4">
+                {todayTasks.slice(0, 3).map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                        task.status === 'completed'
+                          ? 'bg-[#10B981]'
+                          : 'bg-white/20'
+                      }`}
+                    >
+                      {task.status === 'completed' && <Zap className="w-3 h-3" />}
+                    </div>
+                    <span className={task.status === 'completed' ? 'line-through opacity-60' : ''}>
+                      {task.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                onClick={() => setCurrentPage('roadmap')}
+                className="w-full bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
+              >
+                {completedTasks.length === todayTasks.length && todayTasks.length > 0
+                  ? 'Review Today'
+                  : 'Start Learning'}
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </>
+          )}
         </Card>
       </motion.div>
 
       {/* Pending Assignments */}
-      {pendingAssignments.length > 0 && (
+      {isPaid && pendingAssignments.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -237,72 +345,76 @@ export function Dashboard() {
         </motion.div>
       )}
 
-      {/* Progress Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="mb-6"
-      >
-        <h2 className="text-lg font-bold mb-3">Mastery Growth</h2>
-        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-4">
-          <div className="h-40">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={displayChartData}>
-                <defs>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#CCFF00" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#CCFF00" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-                <YAxis hide domain={[0, 100]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1A1A1E',
-                    border: '1px solid #2A2A2E',
-                    borderRadius: '8px',
-                  }}
-                  labelStyle={{ color: '#9CA3AF' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="score"
-                  stroke="#CCFF00"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorScore)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </motion.div>
-
-      {/* AI Tutor Widget */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <Card
-          className="bg-[#1A1A1E] border-[#2A2A2E] p-4 cursor-pointer hover:border-[#6D28D9] transition-colors"
-          onClick={() => setCurrentPage('tutor')}
+      {/* Progress Chart - Only show if paid */}
+      {isPaid && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mb-6"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-[#6D28D9] to-[#8B5CF6] rounded-full flex items-center justify-center text-3xl">
-              {personality.avatar}
+          <h2 className="text-lg font-bold mb-3">Mastery Growth</h2>
+          <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-4">
+            <div className="h-40">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={displayChartData}>
+                  <defs>
+                    <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#CCFF00" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#CCFF00" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                  <YAxis hide domain={[0, 100]} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1A1A1E',
+                      border: '1px solid #2A2A2E',
+                      borderRadius: '8px',
+                    }}
+                    labelStyle={{ color: '#9CA3AF' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#CCFF00"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorScore)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-            <div className="flex-1">
-              <p className="font-bold">{personality.name}</p>
-              <p className="text-sm text-[#9CA3AF]">
-                "{personality.encouragement[0]}"
-              </p>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* AI Tutor Widget - Only show if paid */}
+      {isPaid && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Card
+            className="bg-[#1A1A1E] border-[#2A2A2E] p-4 cursor-pointer hover:border-[#6D28D9] transition-colors"
+            onClick={() => setCurrentPage('tutor')}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#6D28D9] to-[#8B5CF6] rounded-full flex items-center justify-center text-3xl">
+                {personality.avatar}
+              </div>
+              <div className="flex-1">
+                <p className="font-bold">{personality.name}</p>
+                <p className="text-sm text-[#9CA3AF]">
+                  "{personality.encouragement[0]}"
+                </p>
+              </div>
+              <MessageCircle className="w-6 h-6 text-[#CCFF00]" />
             </div>
-            <MessageCircle className="w-6 h-6 text-[#CCFF00]" />
-          </div>
-        </Card>
-      </motion.div>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Quick Actions */}
       <motion.div
@@ -312,11 +424,11 @@ export function Dashboard() {
         className="mt-6"
       >
         <h2 className="text-lg font-bold mb-3">Quick Actions</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => setCurrentPage('roadmap')}
+            onClick={() => isPaid ? setCurrentPage('roadmap') : setShowPaymentModal(true)}
           >
             <Map className="w-6 h-6 text-[#CCFF00]" />
             <span className="text-xs">Roadmap</span>
@@ -324,7 +436,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => setCurrentPage('catalog')}
+            onClick={() => isPaid ? setCurrentPage('catalog') : setShowPaymentModal(true)}
           >
             <BookOpen className="w-6 h-6 text-[#3B82F6]" />
             <span className="text-xs">Practice</span>
@@ -332,13 +444,34 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => setCurrentPage('tasks')}
+            onClick={() => isPaid ? setCurrentPage('tasks') : setShowPaymentModal(true)}
           >
             <Award className="w-6 h-6 text-[#F59E0B]" />
             <span className="text-xs">Tasks</span>
           </Button>
+          <Button
+            variant="outline"
+            className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
+            onClick={() => setShowReferralPanel(true)}
+          >
+            <Gift className="w-6 h-6 text-[#10B981]" />
+            <span className="text-xs">Refer</span>
+          </Button>
         </div>
       </motion.div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={handlePaymentSuccess}
+      />
+
+      {/* Referral Panel */}
+      <ReferralPanel
+        isOpen={showReferralPanel}
+        onClose={() => setShowReferralPanel(false)}
+      />
     </div>
   );
 }

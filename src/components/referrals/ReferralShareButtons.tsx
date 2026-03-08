@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/state/user.store";
+import { buildReferralLink } from "@/utils/referral";
 import type { SharePlatform } from "@/types/referral";
 
 const sharePlatforms = [
@@ -47,10 +48,19 @@ const sharePlatforms = [
 export function ReferralShareButtons() {
   const { referralCode, nickname, user_id } = useUserStore();
 
-  const referralLink = `https://propella-lp.vercel.app/?ref=${referralCode || "REF123"}&name=${encodeURIComponent(nickname || "User")}&email=${encodeURIComponent(user_id ? `${user_id}@propella.app` : "user@propella.app")}`;
+  // Get email from localStorage
+  const userData = JSON.parse(localStorage.getItem("user") || "{}");
+  const userEmail = userData.email || "";
+
+  // Build referral link using the user's personal referral code from backend
+  const effectiveReferralCode = referralCode || "";
+  const displayName = nickname || user_id || "User";
+  const referralLink = effectiveReferralCode 
+    ? buildReferralLink(effectiveReferralCode, displayName, userEmail)
+    : "https://propella.ng";
 
   const handleShare = (platform: SharePlatform) => {
-    const text = `I just joined the PROPELLA waitlist! 🚀 AI-powered JAMB preparation is coming. Join me and be ready to ace your exams! ${referralLink}`;
+    const text = `I just joined the PROPELLA waitlist! 🚀 AI-powered JAMB preparation is coming. Join me using my referral code ${effectiveReferralCode || ""} and be ready to ace your exams! ${referralLink}`;
 
     let url = "";
 
@@ -101,7 +111,8 @@ export function ReferralShareButtons() {
           >
             <Button
               onClick={() => handleShare(platform.platform)}
-              className={`${platform.color} text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all duration-200`}
+              disabled={!effectiveReferralCode}
+              className={`${platform.color} text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all duration-200 disabled:opacity-50`}
               size="sm"
             >
               <platform.icon className="w-4 h-4" />

@@ -27,6 +27,7 @@ export interface DashboardResponse {
 // User Profile Types
 export interface UserProfile {
   user_id: string;
+  username?: string;  // From backend registration
   nickname: string;
   rank: string;
   level: number;
@@ -184,6 +185,7 @@ export interface PaymentInitiatePayload {
   email: string;
   phone_number?: string;
   name: string;
+  plan_id?: string;
 }
 
 export interface PaymentInitiateResponse {

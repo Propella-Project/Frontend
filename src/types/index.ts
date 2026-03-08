@@ -75,7 +75,7 @@ export interface Quiz {
   timeTaken: number;
   completed: boolean;
   createdAt: Date;
-  type: 'diagnostic' | 'daily' | 'reinforcement' | 'challenge';
+  type: 'diagnostic' | 'daily' | 'reinforcement' | 'challenge' | 'marathon';
 }
 
 export interface RoadmapDay {
@@ -509,6 +509,158 @@ export const JAMB_SUBJECTS: Subject[] = [
       { id: 'lit_8', subjectId: 'literature', name: 'African Poetry', syllabusArea: 'African Literature', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
       { id: 'lit_9', subjectId: 'literature', name: 'Non-African Drama', syllabusArea: 'World Literature', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
       { id: 'lit_10', subjectId: 'literature', name: 'Non-African Prose', syllabusArea: 'World Literature', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'crs',
+    name: 'Christian Religious Studies',
+    code: 'CRS',
+    icon: '✝️',
+    color: '#FFD700',
+    topics: [
+      { id: 'crs_1', subjectId: 'crs', name: 'Creation and Sin', syllabusArea: 'Old Testament', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_2', subjectId: 'crs', name: 'The Patriarchs', syllabusArea: 'Old Testament', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_3', subjectId: 'crs', name: 'The Exodus', syllabusArea: 'Old Testament', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_4', subjectId: 'crs', name: 'Life of Jesus', syllabusArea: 'New Testament', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_5', subjectId: 'crs', name: 'The Early Church', syllabusArea: 'New Testament', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_6', subjectId: 'crs', name: 'Paul\'s Epistles', syllabusArea: 'New Testament', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_7', subjectId: 'crs', name: 'Christian Ethics', syllabusArea: 'Christian Living', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_8', subjectId: 'crs', name: 'Faith and Works', syllabusArea: 'Christian Living', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_9', subjectId: 'crs', name: 'The Christian Family', syllabusArea: 'Social Issues', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'crs_10', subjectId: 'crs', name: 'The Second Coming', syllabusArea: 'Eschatology', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'irs',
+    name: 'Islamic Religious Studies',
+    code: 'IRS',
+    icon: '🕌',
+    color: '#00B894',
+    topics: [
+      { id: 'irs_1', subjectId: 'irs', name: 'Tawhid and Articles of Faith', syllabusArea: 'Aqeedah', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_2', subjectId: 'irs', name: 'The Quran', syllabusArea: 'Sources', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_3', subjectId: 'irs', name: 'The Hadith', syllabusArea: 'Sources', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_4', subjectId: 'irs', name: 'Fiqh and Worship', syllabusArea: 'Jurisprudence', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_5', subjectId: 'irs', name: 'Islamic History', syllabusArea: 'History', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_6', subjectId: 'irs', name: 'The Life of Prophet Muhammad', syllabusArea: 'Seerah', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_7', subjectId: 'irs', name: 'Islamic Morality', syllabusArea: 'Akhlaaq', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_8', subjectId: 'irs', name: 'Islamic Economic System', syllabusArea: 'Economics', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_9', subjectId: 'irs', name: 'Family in Islam', syllabusArea: 'Social Issues', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'irs_10', subjectId: 'irs', name: 'Islam and Modern Society', syllabusArea: 'Contemporary Issues', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'accounting',
+    name: 'Accounting',
+    code: 'ACC',
+    icon: '📊',
+    color: '#6C5CE7',
+    topics: [
+      { id: 'acc_1', subjectId: 'accounting', name: 'Introduction to Accounting', syllabusArea: 'Principles', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_2', subjectId: 'accounting', name: 'Cash Book and Bank Reconciliation', syllabusArea: 'Recording', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_3', subjectId: 'accounting', name: 'Final Accounts', syllabusArea: 'Financial Statements', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_4', subjectId: 'accounting', name: 'Depreciation', syllabusArea: 'Assets', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_5', subjectId: 'accounting', name: 'Partnership Accounts', syllabusArea: 'Business Organizations', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_6', subjectId: 'accounting', name: 'Company Accounts', syllabusArea: 'Business Organizations', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_7', subjectId: 'accounting', name: 'Departmental and Branch Accounts', syllabusArea: 'Advanced Topics', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_8', subjectId: 'accounting', name: 'Manufacturing Accounts', syllabusArea: 'Industry', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_9', subjectId: 'accounting', name: 'Control Accounts', syllabusArea: 'Verification', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'acc_10', subjectId: 'accounting', name: 'Ratio Analysis', syllabusArea: 'Interpretation', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'agriculture',
+    name: 'Agricultural Science',
+    code: 'AGR',
+    icon: '🌾',
+    color: '#55A630',
+    topics: [
+      { id: 'agr_1', subjectId: 'agriculture', name: 'Soil Science', syllabusArea: 'Crop Production', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_2', subjectId: 'agriculture', name: 'Crop Production', syllabusArea: 'Crop Production', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_3', subjectId: 'agriculture', name: 'Animal Production', syllabusArea: 'Animal Husbandry', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_4', subjectId: 'agriculture', name: 'Agricultural Economics', syllabusArea: 'Economics', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_5', subjectId: 'agriculture', name: 'Farm Tools and Machinery', syllabusArea: 'Mechanization', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_6', subjectId: 'agriculture', name: 'Agricultural Ecology', syllabusArea: 'Environment', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_7', subjectId: 'agriculture', name: 'Genetics and Breeding', syllabusArea: 'Improvement', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_8', subjectId: 'agriculture', name: 'Pests and Diseases', syllabusArea: 'Protection', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_9', subjectId: 'agriculture', name: 'Fish Farming', syllabusArea: 'Fishery', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_10', subjectId: 'agriculture', name: 'Agricultural Extension', syllabusArea: 'Education', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'geography',
+    name: 'Geography',
+    code: 'GEO',
+    icon: '🌍',
+    color: '#0984E3',
+    topics: [
+      { id: 'geo_1', subjectId: 'geography', name: 'The Earth and Its Planets', syllabusArea: 'Physical', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_2', subjectId: 'geography', name: 'Rocks and Weathering', syllabusArea: 'Geomorphology', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_3', subjectId: 'geography', name: 'Climate and Weather', syllabusArea: 'Climatology', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_4', subjectId: 'geography', name: 'Vegetation', syllabusArea: 'Biogeography', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_5', subjectId: 'geography', name: 'Population', syllabusArea: 'Human', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_6', subjectId: 'geography', name: 'Settlement', syllabusArea: 'Human', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_7', subjectId: 'geography', name: 'Transportation and Communication', syllabusArea: 'Economic', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_8', subjectId: 'geography', name: 'Agriculture and Industry', syllabusArea: 'Economic', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_9', subjectId: 'geography', name: 'Map Reading', syllabusArea: 'Practical', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'geo_10', subjectId: 'geography', name: 'Environmental Issues', syllabusArea: 'Regional', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'commerce',
+    name: 'Commerce',
+    code: 'COM',
+    icon: '🏪',
+    color: '#E17055',
+    topics: [
+      { id: 'com_1', subjectId: 'commerce', name: 'Introduction to Commerce', syllabusArea: 'Basics', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_2', subjectId: 'commerce', name: 'Occupation', syllabusArea: 'Production', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_3', subjectId: 'commerce', name: 'Production', syllabusArea: 'Production', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_4', subjectId: 'commerce', name: 'Trade', syllabusArea: 'Exchange', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_5', subjectId: 'commerce', name: 'Advertising', syllabusArea: 'Marketing', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_6', subjectId: 'commerce', name: 'Banking', syllabusArea: 'Finance', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_7', subjectId: 'commerce', name: 'Insurance', syllabusArea: 'Finance', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_8', subjectId: 'commerce', name: 'Transportation', syllabusArea: 'Aids to Trade', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_9', subjectId: 'commerce', name: 'Communication', syllabusArea: 'Aids to Trade', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'com_10', subjectId: 'commerce', name: 'Warehousing', syllabusArea: 'Aids to Trade', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'history',
+    name: 'History',
+    code: 'HIS',
+    icon: '📜',
+    color: '#A29BFE',
+    topics: [
+      { id: 'his_1', subjectId: 'history', name: 'Pre-colonial African History', syllabusArea: 'African', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_2', subjectId: 'history', name: 'Trans-Atlantic Slave Trade', syllabusArea: 'African', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_3', subjectId: 'history', name: 'Colonial Rule in Africa', syllabusArea: 'African', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_4', subjectId: 'history', name: 'Nationalism and Decolonization', syllabusArea: 'African', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_5', subjectId: 'history', name: 'Nigeria up to 1800', syllabusArea: 'Nigerian', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_6', subjectId: 'history', name: 'Nigerian Colonial Period', syllabusArea: 'Nigerian', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_7', subjectId: 'history', name: 'Nigeria since Independence', syllabusArea: 'Nigerian', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_8', subjectId: 'history', name: 'World War I', syllabusArea: 'World', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_9', subjectId: 'history', name: 'World War II', syllabusArea: 'World', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'his_10', subjectId: 'history', name: 'Cold War', syllabusArea: 'World', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+    ]
+  },
+  {
+    id: 'agricultural_science',
+    name: 'Agricultural Science',
+    code: 'AGR',
+    icon: '🌾',
+    color: '#65A30D',
+    topics: [
+      { id: 'agr_1', subjectId: 'agricultural_science', name: 'Crop Production', syllabusArea: 'Crop Science', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_2', subjectId: 'agricultural_science', name: 'Animal Production', syllabusArea: 'Animal Science', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_3', subjectId: 'agricultural_science', name: 'Soil Science', syllabusArea: 'Soil', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_4', subjectId: 'agricultural_science', name: 'Agricultural Economics', syllabusArea: 'Economics', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_5', subjectId: 'agricultural_science', name: 'Agricultural Extension', syllabusArea: 'Extension', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_6', subjectId: 'agricultural_science', name: 'Farm Tools and Machinery', syllabusArea: 'Mechanization', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_7', subjectId: 'agricultural_science', name: 'Pests and Diseases', syllabusArea: 'Protection', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_8', subjectId: 'agricultural_science', name: 'Animal Nutrition', syllabusArea: 'Animal Science', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_9', subjectId: 'agricultural_science', name: 'Plant Nutrition', syllabusArea: 'Crop Science', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
+      { id: 'agr_10', subjectId: 'agricultural_science', name: 'Agricultural Ecology', syllabusArea: 'Ecology', abilityScore: 0, abilityLevel: 'critical', questionsAttempted: 0, questionsCorrect: 0, lastStudied: null, masteryProgress: 0 },
     ]
   },
 ];

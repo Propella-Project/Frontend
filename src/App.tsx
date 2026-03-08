@@ -6,12 +6,28 @@ import { TutorPage } from "@/sections/TutorPage";
 import { TasksPage } from "@/sections/TasksPage";
 import { QuizInterface } from "@/sections/QuizInterface";
 import { QuestionCatalog } from "@/sections/QuestionCatalog";
+import { Profile } from "@/sections/Profile";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
+import { PaymentCallback } from "@/features/payment/PaymentCallback";
 import { AnimatePresence, motion } from "framer-motion";
 
 function App() {
-  const { currentPage, isOnboardingComplete } = useStore();
+  const { currentPage, isOnboardingComplete, setCurrentPage } = useStore();
+  
+  // Check if we're handling a payment callback
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPaymentCallback = urlParams.has("transaction_id") || urlParams.has("tx_ref");
+
+  // Show payment callback handler
+  if (isPaymentCallback) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] text-[#F3F4F6]">
+        <PaymentCallback onComplete={() => setCurrentPage("dashboard")} />
+        <Toaster />
+      </div>
+    );
+  }
 
   // Show onboarding if not complete
   if (!isOnboardingComplete) {
@@ -39,6 +55,7 @@ function App() {
           {currentPage === "tasks" && <TasksPage />}
           {currentPage === "quiz" && <QuizInterface />}
           {currentPage === "catalog" && <QuestionCatalog />}
+          {currentPage === "profile" && <Profile onBack={() => useStore.getState().setCurrentPage("dashboard")} />}
         </motion.div>
       </AnimatePresence>
 

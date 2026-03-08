@@ -1,7 +1,15 @@
 // Environment Configuration
 export const ENV = {
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app",
+  // Main Backend API
+  // Note: The API endpoints are under /api path
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api",
   API_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT || "30000"),
+  
+  // AI Engine API
+  AI_ENGINE_BASE_URL: import.meta.env.VITE_AI_ENGINE_BASE_URL || "https://ai-api.propella.ng",
+  AI_ENGINE_API_KEY: import.meta.env.VITE_AI_ENGINE_API_KEY || "propella_d9bak5LGACyVscLP7sK-vcPkzn7Fzavut-r1AEDE3eM",
+  AI_ENGINE_TIMEOUT: parseInt(import.meta.env.VITE_AI_ENGINE_TIMEOUT || "60000"),
+  
   IS_PRODUCTION: import.meta.env.PROD,
   IS_DEVELOPMENT: import.meta.env.DEV,
 } as const;
@@ -11,4 +19,5 @@ export const FEATURES = {
   ENABLE_AI_VOICE: true,
   ENABLE_PAYMENT: true,
   ENABLE_STREAK_NOTIFICATIONS: true,
+  ENABLE_AI_ENGINE: true, // Use AI Engine for quiz/roadmap generation
 } as const;

@@ -1,22 +1,60 @@
 PROPELLA API ENDPOINTS
 ======================
 
-Base URL: https://propella-api.vercel.app
+Base URL: https://propella-api.vercel.app/api
 
-AUTHENTICATION
---------------
-POST /auth/login/           - User login
-POST /auth/signup/          - User registration
-POST /auth/refresh/         - Refresh access token
-POST /auth/logout/          - User logout
+AUTHENTICATION (JWT)
+--------------------
+POST /accounts/token/           - Login to get access/refresh tokens
+  Payload: { "email": string, "password": string }
+  Response: { "access": string, "refresh": string }
+
+POST /accounts/token/refresh/   - Refresh access token
+  Payload: { "refresh": string }
+  Response: { "access": string }
+
+POST /accounts/register/        - Register new user
+  Payload: {
+    "email": string,
+    "password": string,
+    "confirm_password": string,
+    "username": string (optional),
+    "nickname": string (optional),
+    "referral_code": string (optional),
+    "referred_by": string (optional)  // Referrer's code
+  }
+  Response: { "access": string, "refresh": string, "user": {...} }
+
+POST /accounts/verify-email/    - Verify email with code
+  Payload: { "email": string, "code": string }
+
+POST /accounts/resend-code/     - Resend verification code
+  Payload: { "email": string }
+
+POST /accounts/forgot-password/ - Request password reset
+  Payload: { "email": string }
+
+PUT/PATCH /accounts/change-password/ - Change password (authenticated)
+  Payload: { "old_password": string, "new_password": string }
+
+POST /accounts/reset-password/{uid}/{token}/ - Reset password with uid/token
+  Payload: { "new_password": string, "confirm_password": string }
 
 Headers required for authenticated endpoints:
-Authorization: Bearer <token>
+Authorization: Bearer <access_token>
 
 
-ONBOARDING
-----------
-POST /exam-profile/         - Save exam profile
+USER MANAGEMENT
+---------------
+GET /accounts/all-users/        - Get all users (admin only)
+
+PUT/PATCH /accounts/edit-user/{user_id}/ - Edit user by ID
+  Payload: { "nickname": string, "email": string, ... }
+
+
+EXAM PROFILE
+------------
+POST /accounts/create-exam-profile/ - Create exam profile
   Payload: {
     "nickname": string,
     "exam_date": string (YYYY-MM-DD),
@@ -25,189 +63,99 @@ POST /exam-profile/         - Save exam profile
     "ai_voice_enabled": boolean
   }
 
-POST /user-subjects/        - Save user subjects (exactly 4 required)
-  Payload: {
-    "subjects": string[]
+PUT/PATCH /accounts/edit-exam-profile/{profile_id}/ - Edit exam profile
+  Payload: Same as create
+
+
+REFERRALS
+---------
+GET /accounts/referrals/        - Get referral stats for current user
+  Response: {
+    "user": {
+      "id": string,
+      "nickname": string,
+      "referral_code": string,
+      "referral_points": number,
+      "total_referrals": number,
+      "estimated_earnings": number
+    },
+    "referrals": [...]
   }
+
+Note: 10 points = ₦30 (1 point = ₦3)
+
+
+SUBSCRIPTIONS
+-------------
+GET /accounts/subscriptions/plans/ - Get available subscription plans
+
+POST /accounts/subscriptions/subscribe/ - Subscribe to a plan
+  Payload: { "plan_id": string, "payment_method": string }
+
+
+API SCHEMA
+----------
+GET /api/schema/                - Get OpenAPI schema
+
+
+LEGACY ENDPOINTS (May need backend updates)
+===========================================
+
+ONBOARDING
+----------
+POST /exam-profile/             - Save exam profile
+POST /user-subjects/            - Save user subjects
 
 
 DIAGNOSTIC QUIZ
 ---------------
 GET /diagnostic-quiz/?subject=<subject>
-  Response: Array of {
-    "subject": string,
-    "question": string,
-    "options": string[],
-    "correct_answer": string,
-    "allocated_time": number
-  }
-
-POST /quiz-results/         - Submit diagnostic quiz results
-  Payload: {
-    "results": Array of {
-      "subject": string,
-      "question": string,
-      "timeUsed": number,
-      "userAnswer": string,
-      "correctAnswer": string
-    }
-  }
+POST /quiz-results/             - Submit diagnostic quiz results
 
 
 DASHBOARD
 ---------
-GET /dashboard/             - Get dashboard data
-  Response: {
-    "nickname": string,
-    "rank": string,
-    "level": number,
-    "points": number,
-    "average_score": number,
-    "completed_days": number,
-    "pending_tasks": number,
-    "streak": number
-  }
-
-GET /performance-graph/     - Get performance graph data
-  Response: Array of {
-    "date": string (YYYY-MM-DD),
-    "score": number
-  }
-
-GET /user-level/            - Get user level info
-  Response: {
-    "level": number,
-    "points": number,
-    "next_level_points": number,
-    "progress_percentage": number
-  }
+GET /dashboard/                 - Get dashboard data
+GET /performance-graph/         - Get performance graph data
+GET /user-level/                - Get user level info
 
 
 ROADMAP
 -------
-GET /roadmap/today/         - Get today's roadmap
-  Response: {
-    "notes": string,
-    "quiz": { "id": string, "title": string, "total_questions": number } | null,
-    "progress": number,
-    "tasks": Array of Task,
-    "generation_status": "loading" | "ready" | "error"
-  }
-
-GET /roadmap/day/{dayId}/   - Get specific day roadmap
-POST /roadmap/tasks/{taskId}/complete/  - Mark task as complete
+GET /roadmap/today/             - Get today's roadmap
+GET /roadmap/day/{dayId}/       - Get specific day roadmap
+POST /roadmap/tasks/{taskId}/complete/ - Mark task as complete
 
 
 STREAK
 ------
-GET /streak/                - Get current streak
-  Response: {
-    "current_streak": number,
-    "longest_streak": number,
-    "last_study_date": string,
-    "streak_multiplier": number
-  }
-
-POST /update-streak/        - Update streak (call after study session)
+GET /streak/                    - Get current streak
+POST /update-streak/            - Update streak
 
 
 AI TUTOR
 --------
-POST /ai-tutor/chat/        - Send message to AI tutor
-  Payload: {
-    "message": string,
-    "session_id": string (optional)
-  }
-  Response: {
-    "response": string,
-    "session_id": string,
-    "type": "text" | "explanation" | "song" | "flashcard" | "diagram",
-    "metadata": {
-      "suggested_topics": string[],
-      "follow_up_questions": string[]
-    }
-  }
+POST /ai-tutor/chat/            - Send message to AI tutor
 
 
 LEARNING
 --------
-GET /weak-topics/           - Get weak topics list
-  Response: Array of {
-    "id": string,
-    "subject": string,
-    "topic": string,
-    "weakness_score": number,
-    "recommended_action": string
-  }
-
-GET /assignments/           - Get assignments
-  Response: Array of Assignment
-
-POST /assignments/{id}/complete/  - Complete assignment
+GET /weak-topics/               - Get weak topics list
+GET /assignments/               - Get assignments
+POST /assignments/{id}/complete/ - Complete assignment
 
 
 PAYMENTS (Flutterwave)
 ----------------------
-POST /payments/initiate/    - Initiate payment
-  Payload: {
-    "amount": number,
-    "currency": string (default: "NGN"),
-    "email": string,
-    "phone_number": string (optional),
-    "name": string
-  }
-  Response: {
-    "payment_link": string,
-    "transaction_ref": string
-  }
-
-POST /payments/verify/      - Verify payment
-  Payload: {
-    "transaction_ref": string
-  }
-  Response: {
-    "status": "success" | "failed" | "pending",
-    "transaction_ref": string,
-    "amount": number,
-    "payment_date": string
-  }
+POST /payments/initiate/        - Initiate payment
+POST /payments/verify/          - Verify payment
 
 
 SETTINGS
 --------
-PUT /profile/update/        - Update profile
-  Payload: {
-    "nickname": string (optional),
-    "ai_tutor_selected": string (optional),
-    "ai_voice_enabled": boolean (optional)
-  }
-
-GET /notifications/         - Get notifications
-  Response: Array of {
-    "id": string,
-    "title": string,
-    "message": string,
-    "type": "app_update" | "task_reminder" | "streak_alert" | "payment" | "general",
-    "is_read": boolean,
-    "created_at": string,
-    "action_url": string (optional)
-  }
-
-PATCH /notifications/{id}/read/  - Mark notification as read
-
-
-SWITCHING BETWEEN MOCK AND PRODUCTION
-=====================================
-
-To switch between mock and production endpoints:
-
-1. Open `src/config/endpoints.ts`
-
-2. Change the ACTIVE_ENDPOINTS export:
-   - For production: export const ACTIVE_ENDPOINTS = ENDPOINTS;
-   - For mock: export const ACTIVE_ENDPOINTS = MOCK_ENDPOINTS;
-
-3. Mock endpoints should be defined in the MOCK_ENDPOINTS object.
+PUT /profile/update/            - Update profile
+GET /notifications/             - Get notifications
+PATCH /notifications/{id}/read/ - Mark notification as read
 
 
 ERROR HANDLING

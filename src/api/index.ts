@@ -10,3 +10,17 @@ export { learningApi } from "./learning.api";
 export { paymentApi } from "./payment.api";
 export { settingsApi } from "./settings.api";
 export { quizApi } from "./quiz.api";
+export { referralApi } from "./referral.api";
+export { subscriptionApi } from "./subscription.api";
+export { aiEngineApi } from "./ai-engine.api";
+
+// Export client utilities
+export {
+  getToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+  isAuthError,
+  isNetworkError,
+  getErrorMessage,
+} from "./client";

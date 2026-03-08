@@ -13,12 +13,16 @@ import {
   ChevronRight,
   History,
   Award,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { aiQuizService } from '@/services/aiQuiz.service';
+import { toast } from 'sonner';
 
 export function QuestionCatalog() {
   const { subjects, quizHistory, startQuiz, user, gamification } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMarathonLoading, setIsMarathonLoading] = useState(false);
 
   const handleStartPractice = (subjectId: string) => {
     startQuiz(subjectId, null, 'daily');
@@ -27,6 +31,69 @@ export function QuestionCatalog() {
   const handleStartChallenge = () => {
     const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
     startQuiz(randomSubject.id, null, 'challenge');
+  };
+
+  const handleStartMarathon = async () => {
+    if (!user?.subjects || user.subjects.length === 0) {
+      toast.error("Please select subjects in your profile first");
+      return;
+    }
+
+    setIsMarathonLoading(true);
+    toast.info("Generating 50 AI-powered questions... This may take a moment.");
+
+    try {
+      // Get user's selected subjects
+      const userSubjects = subjects.filter(s => 
+        user.subjects.some(us => us.id === s.id)
+      );
+
+      if (userSubjects.length === 0) {
+        toast.error("No subjects found. Please complete onboarding.");
+        return;
+      }
+
+      // Generate 50 AI-powered questions
+      const questions = await aiQuizService.generateMarathonAIQuestions(
+        userSubjects,
+        50,
+        "medium"
+      );
+
+      if (questions.length === 0) {
+        toast.error("Failed to generate questions. Please try again.");
+        return;
+      }
+
+      // Create marathon quiz
+      const store = useStore.getState();
+      const marathonQuiz = {
+        id: `marathon_${Date.now()}`,
+        userId: user.id || 'user_1',
+        subjectId: userSubjects[0].id,
+        topicId: null,
+        type: 'marathon' as const,
+        questions,
+        answers: [],
+        score: 0,
+        totalQuestions: questions.length,
+        timeTaken: 0,
+        completed: false,
+        createdAt: new Date(),
+      };
+
+      // Set the quiz in store
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (store as any).currentQuiz = marathonQuiz;
+      store.setCurrentPage('quiz');
+
+      toast.success(`Marathon mode started! ${questions.length} questions ready.`);
+    } catch (error) {
+      console.error("[Marathon] Failed to start:", error);
+      toast.error("Failed to start marathon mode. Please try again.");
+    } finally {
+      setIsMarathonLoading(false);
+    }
   };
 
   const filteredSubjects = subjects.filter(
@@ -103,15 +170,49 @@ export function QuestionCatalog() {
           <Button
             variant="outline"
             onClick={() => {
-              const recentSubject = quizHistory[quizHistory.length - 1]?.subjectId;
-              if (recentSubject) {
-                startQuiz(recentSubject, null, 'reinforcement');
+              // Find weak areas from quiz history
+              const weakTopics = new Map<string, { subjectId: string; topicId: string | null; count: number }>();
+              
+              quizHistory.forEach((quiz) => {
+                quiz.questions.forEach((q, idx) => {
+                  // If answer is incorrect
+                  if (quiz.answers[idx] !== q.correctAnswer) {
+                    const key = `${quiz.subjectId}_${q.topicId || 'general'}`;
+                    const existing = weakTopics.get(key);
+                    if (existing) {
+                      existing.count++;
+                    } else {
+                      weakTopics.set(key, {
+                        subjectId: quiz.subjectId,
+                        topicId: q.topicId,
+                        count: 1,
+                      });
+                    }
+                  }
+                });
+              });
+              
+              // Sort by most mistakes and pick the weakest topic
+              const sortedWeakAreas = Array.from(weakTopics.entries())
+                .sort((a, b) => b[1].count - a[1].count);
+              
+              if (sortedWeakAreas.length > 0) {
+                const weakestTopic = sortedWeakAreas[0][1];
+                toast.info(`Starting weak area practice...`);
+                startQuiz(weakestTopic.subjectId, weakestTopic.topicId, 'reinforcement');
+              } else {
+                // Fallback to most recent subject if no weak areas found
+                const recentSubject = quizHistory[quizHistory.length - 1]?.subjectId;
+                if (recentSubject) {
+                  toast.info(`No weak areas found! Practicing your most recent subject.`);
+                  startQuiz(recentSubject, null, 'reinforcement');
+                }
               }
             }}
             disabled={quizHistory.length === 0}
-            className="h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
+            className="h-auto py-4 border-[#2A2A2E] hover:border-[#EF4444] hover:bg-[#EF4444]/10"
           >
-            <History className="w-5 h-5 mr-2" />
+            <History className="w-5 h-5 mr-2 text-[#EF4444]" />
             <div className="text-left">
               <p className="font-bold">Weak Areas</p>
               <p className="text-xs opacity-80">Focus on mistakes</p>
@@ -291,7 +392,7 @@ export function QuestionCatalog() {
         </motion.div>
       )}
 
-      {/* Marathon Mode */}
+      {/* Marathon Mode - AI Powered */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -306,11 +407,22 @@ export function QuestionCatalog() {
             <div className="flex-1">
               <h3 className="font-bold">Marathon Mode</h3>
               <p className="text-sm text-[#9CA3AF]">
-                50 questions • Timed • Compete for leaderboard
+                50 AI-generated questions • Mixed subjects • Test your endurance
               </p>
             </div>
-            <Button className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600]">
-              Start
+            <Button 
+              onClick={handleStartMarathon}
+              disabled={isMarathonLoading}
+              className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] disabled:opacity-50"
+            >
+              {isMarathonLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Start"
+              )}
             </Button>
           </div>
         </Card>
