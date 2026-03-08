@@ -125,14 +125,14 @@ function AppInitializer({ children }: { children: ReactNode }) {
 
       try {
         // Fetch dashboard data to initialize user state
-        const dashboardData = await dashboardApi.getDashboard();
+        const dashboardData = await dashboardApi.user.getMe();
         
         setUser({
-          nickname: dashboardData.nickname,
-          rank: dashboardData.rank,
-          level: dashboardData.level,
-          points: dashboardData.points,
-          streak: dashboardData.streak,
+          nickname: dashboardData.nickname || dashboardData.username,
+          rank: dashboardData.rank || "Rookie",
+          level: dashboardData.level || 1,
+          points: dashboardData.points || dashboardData.referral_points || 0,
+          streak: dashboardData.streak || 0,
         });
       } catch (error) {
         console.error("[AppInitializer] Dashboard fetch failed:", error);

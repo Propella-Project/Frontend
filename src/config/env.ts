@@ -1,9 +1,16 @@
 // Environment Configuration
 export const ENV = {
-  // Main Backend API
+  // Main Backend API - Propella Django Backend
   // Note: The API endpoints are under /api path
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api",
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://api.propella.ng/api",
   API_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT || "30000"),
+  
+  // Landing page URL for redirects
+  LANDING_PAGE_URL: import.meta.env.VITE_LANDING_PAGE_URL || "https://propella.ng",
+  LOGIN_PAGE_URL: import.meta.env.VITE_LOGIN_PAGE_URL || "https://propella.ng/login",
+  
+  // Dashboard URL
+  DASHBOARD_URL: import.meta.env.VITE_DASHBOARD_URL || "https://dashboard.propella.ng",
   
   // AI Engine API
   AI_ENGINE_BASE_URL: import.meta.env.VITE_AI_ENGINE_BASE_URL || "https://ai-api.propella.ng",
