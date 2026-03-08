@@ -7,9 +7,10 @@ import type {
 } from "axios";
 import { ENV } from "@/config/env";
 
-// Token storage keys
-const TOKEN_KEY = "propella_token";
-const REFRESH_TOKEN_KEY = "propella_refresh_token";
+// Token storage keys (must match landing page)
+const TOKEN_KEY = "access_token";        // Landing page uses "access_token"
+const REFRESH_TOKEN_KEY = "refresh_token"; // Landing page uses "refresh_token"
+const AUTH_TOKEN_KEY = "auth_token";       // Landing page also sets "auth_token"
 const USER_ID_KEY = "propella_user_id";
 
 // Create Axios instance
@@ -37,16 +38,20 @@ function onTokenRefreshed(newToken: string) {
   refreshSubscribers = [];
 }
 
-// Get stored token
+// Get stored token (checks multiple keys for compatibility)
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  // Check landing page token keys first
+  return localStorage.getItem(TOKEN_KEY) || 
+         localStorage.getItem(AUTH_TOKEN_KEY) ||
+         localStorage.getItem("propella_token");
 }
 
-// Get stored refresh token
+// Get stored refresh token (checks multiple keys for compatibility)
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return localStorage.getItem(REFRESH_TOKEN_KEY) || 
+         localStorage.getItem("propella_refresh_token");
 }
 
 // Set tokens
@@ -61,11 +66,14 @@ export function setTokens(access: string, refresh?: string, userId?: string): vo
   }
 }
 
-// Clear tokens (logout)
+// Clear tokens (logout) - clears all possible keys
 export function clearTokens(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem("propella_token");
+  localStorage.removeItem("propella_refresh_token");
   localStorage.removeItem(USER_ID_KEY);
 }
 
@@ -192,18 +200,8 @@ function handleAuthFailure(): void {
   // Dispatch event for components to listen to
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("propella:auth:failure"));
-    
-    // Only redirect if we're not already on the login page
-    const currentPath = window.location.pathname;
-    const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password"];
-    
-    if (!publicPaths.some((path) => currentPath.includes(path))) {
-      // Store the current path to redirect back after login
-      sessionStorage.setItem("propella_redirect_after_login", currentPath);
-      
-      // Redirect to login
-      window.location.href = "/login";
-    }
+    // Note: AuthContext handles redirect to landing page
+    // This prevents redirect loops between landing page and dashboard
   }
 }
 

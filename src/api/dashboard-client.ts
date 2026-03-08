@@ -29,15 +29,8 @@ async function fetchWithCredentials(
     },
   });
 
-  // Handle 401 Unauthorized - redirect to login
-  if (response.status === 401) {
-    // Store current URL for redirect after login
-    sessionStorage.setItem("propella_redirect_after_login", window.location.pathname);
-    
-    // Redirect to login page
-    window.location.href = ENV.LOGIN_PAGE_URL;
-    throw new Error("Unauthorized - redirecting to login");
-  }
+  // Note: Auth redirects are handled by AuthContext
+  // This prevents redirect loops between landing page and dashboard
 
   return response;
 }

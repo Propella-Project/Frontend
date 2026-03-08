@@ -12,8 +12,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ENV } from "@/config/env";
 
 // Token storage keys (must match landing page)
-const TOKEN_KEY = "propella_token";
-const REFRESH_TOKEN_KEY = "propella_refresh_token";
+const TOKEN_KEY = "access_token";        // Landing page uses "access_token"
+const REFRESH_TOKEN_KEY = "refresh_token"; // Landing page uses "refresh_token"
+const AUTH_TOKEN_KEY = "auth_token";       // Landing page also sets "auth_token"
 const USER_ID_KEY = "propella_user_id";
 
 // User type from backend
@@ -57,10 +58,13 @@ interface AuthProviderProps {
 // API base URL
 const API_BASE_URL = ENV.API_BASE_URL.replace(/\/api$/, '');
 
-// Get token from localStorage
+// Get token from localStorage (checks multiple keys for compatibility)
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  // Check landing page token keys first
+  return localStorage.getItem(TOKEN_KEY) || 
+         localStorage.getItem(AUTH_TOKEN_KEY) ||
+         localStorage.getItem("propella_token");
 }
 
 // Get refresh token from localStorage
@@ -244,9 +248,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsAuthenticated(false);
       setToken(null);
       
-      // Clear localStorage
+      // Clear localStorage (clear all possible token keys)
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem("propella_token");
+      localStorage.removeItem("propella_refresh_token");
       localStorage.removeItem(USER_ID_KEY);
       
       // Redirect to landing page
@@ -265,16 +272,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuth();
   }, [checkAuth]);
 
-  // Redirect to login if not authenticated (after initial check)
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated && !user) {
-      const currentUrl = window.location.href;
-      if (!currentUrl.includes("/login")) {
-        sessionStorage.setItem("propella_redirect_after_login", window.location.pathname);
-        window.location.href = ENV.LOGIN_PAGE_URL;
-      }
-    }
-  }, [isLoading, isAuthenticated, user]);
+  // Note: No automatic redirect to login
+  // The landing page handles authentication flow
+  // Dashboard just checks auth state and shows loading if not authenticated
 
   const value: AuthContextType = {
     user,
