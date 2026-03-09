@@ -17,9 +17,9 @@ export const quizApi = {
   getDiagnosticQuiz: async (subject: string, topic?: string): Promise<DiagnosticQuestion[]> => {
     try {
       // Try AI Engine first for dynamic quiz generation
-      // AI Engine requires topic field
+      // AI Engine requires topic field and uses 'subjects' (plural)
       const requestBody = {
-        subject,
+        subjects: subject,
         topic: topic && topic.trim() !== "" ? topic : "General",
         difficulty: DEFAULT_QUIZ_CONFIG.difficulty,
         number_of_questions: DEFAULT_QUIZ_CONFIG.number_of_questions,
@@ -96,7 +96,7 @@ export const quizApi = {
     questionCount: number = 5
   ): Promise<DiagnosticQuestion[]> => {
     const aiResponse = await aiEngineApi.generateQuiz({
-      subject,
+      subjects: subject,
       topic: topic && topic.trim() !== "" ? topic : "General",
       difficulty,
       number_of_questions: questionCount,

@@ -57,6 +57,9 @@ export function PaymentCallback({ onComplete }: PaymentCallbackProps) {
           setMessage("Payment successful! Your subscription is now active. You now have full access to your personalized study roadmap.");
           toast.success("Payment verified! Roadmap unlocked!");
           
+          // Set flag for dashboard to immediately recognize payment
+          localStorage.setItem("propella_payment_verified", "true");
+          
           // Clear URL params
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
@@ -98,16 +101,17 @@ export function PaymentCallback({ onComplete }: PaymentCallbackProps) {
               <div className="w-16 h-16 bg-[#10B981]/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-[#10B981]" />
               </div>
-              <h2 className="text-xl font-bold mb-2">Payment Successful!</h2>
+              <h2 className="text-xl font-bold mb-2">Payment Successful! 🎉</h2>
               <p className="text-[#9CA3AF] mb-2">{message}</p>
               <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 rounded-lg p-3 mb-6">
-                <p className="text-[#CCFF00] text-sm font-medium">🎉 Your study roadmap is now unlocked!</p>
+                <p className="text-[#CCFF00] text-sm font-medium">✅ Full access unlocked</p>
+                <p className="text-[#9CA3AF] text-xs mt-1">Your personalized study roadmap is ready</p>
               </div>
               <Button
                 onClick={onComplete}
                 className="w-full bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
               >
-                Start Learning
+                Go to Dashboard
               </Button>
             </>
           )}

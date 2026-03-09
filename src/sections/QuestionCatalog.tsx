@@ -54,11 +54,14 @@ export function QuestionCatalog() {
       }
 
       // Generate 50 AI-powered questions
+      console.log("[QuestionCatalog] Starting marathon question generation...");
       const questions = await aiQuizService.generateMarathonAIQuestions(
         userSubjects,
         50,
         "medium"
       );
+
+      console.log(`[QuestionCatalog] Generated ${questions.length} questions`);
 
       if (questions.length === 0) {
         toast.error("Failed to generate questions. Please try again.");

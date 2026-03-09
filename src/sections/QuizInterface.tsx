@@ -94,49 +94,11 @@ export function QuizInterface() {
   // Get user's voice preference
   const voicePreference = user?.voicePreference || "female";
 
-  // Early return if no quiz
-  if (!currentQuiz) {
-    return (
-      <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center">
-        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">No Active Quiz</h2>
-          <p className="text-[#9CA3AF] mb-4">
-            Start a quiz from your roadmap or practice section
-          </p>
-          <Button
-            onClick={() => setCurrentPage("dashboard")}
-            className="bg-[#6D28D9]"
-          >
-            Go to Dashboard
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  // Guard against undefined questions or out of bounds index
-  if (!currentQuiz.questions || currentQuiz.questions.length === 0 || currentQuestionIndex >= currentQuiz.questions.length) {
-    return (
-      <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center p-4">
-        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-[#EF4444] mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Quiz Error</h2>
-          <p className="text-[#9CA3AF] mb-4">Unable to load quiz questions. Please try again.</p>
-          <Button
-            onClick={() => setCurrentPage('dashboard')}
-            className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600]"
-          >
-            Go to Dashboard
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  const currentQuestion = currentQuiz.questions[currentQuestionIndex];
-  const progress =
-    ((currentQuestionIndex + 1) / currentQuiz.totalQuestions) * 100;
+  // Calculate current question safely (hooks must be called before any conditional returns)
+  const currentQuestion = currentQuiz?.questions?.[currentQuestionIndex];
+  const progress = currentQuiz
+    ? ((currentQuestionIndex + 1) / currentQuiz.totalQuestions) * 100
+    : 0;
 
   // Function to speak question and options
   const speakQuestion = useCallback(() => {
@@ -208,6 +170,7 @@ export function QuizInterface() {
   };
 
   const handleNext = () => {
+    if (!currentQuiz) return;
     if (currentQuestionIndex < currentQuiz.totalQuestions - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
       setTimeLeft(QUESTION_TIME);
@@ -284,7 +247,7 @@ export function QuizInterface() {
   };
 
   // Results Screen
-  if (showResults) {
+  if (showResults && currentQuiz) {
     const correctAnswers = currentQuiz.questions.filter(
       (q, i) => answers[i] === q.correctAnswer,
     ).length;
@@ -443,6 +406,46 @@ export function QuizInterface() {
             )}
           </div>
         </motion.div>
+      </div>
+    );
+  }
+
+  // Render error state if no quiz
+  if (!currentQuiz) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center">
+        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">No Active Quiz</h2>
+          <p className="text-[#9CA3AF] mb-4">
+            Start a quiz from your roadmap or practice section
+          </p>
+          <Button
+            onClick={() => setCurrentPage("dashboard")}
+            className="bg-[#6D28D9]"
+          >
+            Go to Dashboard
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render error state if no questions
+  if (!currentQuiz.questions || currentQuiz.questions.length === 0 || currentQuestionIndex >= currentQuiz.questions.length) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center p-4">
+        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-[#EF4444] mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Quiz Error</h2>
+          <p className="text-[#9CA3AF] mb-4">Unable to load quiz questions. Please try again.</p>
+          <Button
+            onClick={() => setCurrentPage('dashboard')}
+            className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600]"
+          >
+            Go to Dashboard
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -639,7 +642,7 @@ export function QuizInterface() {
 
           {/* Explanation */}
           <AnimatePresence>
-            {hasAnswered && (
+            {hasAnswered && currentQuestion && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

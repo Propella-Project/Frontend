@@ -48,9 +48,8 @@ export function OnboardingFlow() {
 
   const {
     loading: apiLoading,
-    // saveExamProfile,  // Commented out - API not ready yet
-    // saveSubjects,     // Commented out - API not ready yet
-    // submitDiagnosticResults, // Commented out - API not ready yet
+    saveExamProfile,  // Save exam profile to backend
+    saveSubjects,     // Save subjects to backend
   } = useOnboarding();
 
   const [currentStep, setCurrentStep] = useState<Step>("profile");
@@ -183,16 +182,53 @@ export function OnboardingFlow() {
   };
 
   const handleFinishOnboarding = async () => {
-    // Start processing animation before completing onboarding
+    // Start processing animation
     setIsProcessing(true);
+    setProcessingMessage("Saving your profile...");
 
-    // Simulate processing time for roadmap generation
-    setTimeout(() => {
+    try {
+      // Save exam profile to backend (NOW at the end of onboarding)
+      const examProfileSaved = await saveExamProfile({
+        nickname,
+        exam_date: examDate,
+        study_hours_per_day: dailyHours,
+        ai_tutor_selected: personality,
+        ai_voice_enabled: voice === "female", // simple mapping
+      });
+
+      if (!examProfileSaved) {
+        toast.error("Failed to save profile. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      setProcessingMessage("Saving your subjects...");
+
+      // Save subjects to backend
+      const subjectsSaved = await saveSubjects({
+        subjects: selectedSubjectIds,
+      });
+
+      if (!subjectsSaved) {
+        toast.error("Failed to save subjects. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      setProcessingMessage("Generating your roadmap...");
+
+      // Complete local onboarding
       completeStoreOnboarding();
-    }, 5000);
+      
+      toast.success("Welcome to PROPELLA! Your journey begins now!");
+    } catch (error) {
+      console.error("[Onboarding] Failed to finish:", error);
+      toast.error("Something went wrong. Please try again.");
+      setIsProcessing(false);
+    }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === "profile") {
       if (!nickname.trim()) {
         toast.error("Please enter your nickname");
@@ -211,7 +247,7 @@ export function OnboardingFlow() {
         return;
       }
 
-      // Save to local store only (API will be called when starting quiz)
+      // Save to local store only (backend API call happens at the end)
       setStoreUser({
         nickname,
         examDate: new Date(examDate),
@@ -223,6 +259,7 @@ export function OnboardingFlow() {
       );
       setStoreSelectedSubjects(selectedSubs);
 
+      // Move to next step
       setCurrentStep("preferences");
       setStepIndex(1);
     }

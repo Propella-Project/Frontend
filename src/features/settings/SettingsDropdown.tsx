@@ -117,14 +117,21 @@ export function SettingsDropdown() {
   };
 
   const handleLogout = () => {
-    // Clear authentication tokens (both dashboard and landing page names)
+    // Clear ALL authentication-related items
     localStorage.removeItem("propella_token");
     localStorage.removeItem("access_token");
+    localStorage.removeItem("auth_token");
     localStorage.removeItem("propella_refresh_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("propella_user_id");
     localStorage.removeItem("user");
     localStorage.removeItem("referralCode");
     localStorage.removeItem("aiTutor");
+    
+    // Clear persisted stores (this will reset onboarding state too)
+    localStorage.removeItem("propella-storage");
+    localStorage.removeItem("propella-user-store");
+    localStorage.removeItem("propella-app-store");
 
     // Clear user state
     clearUser();

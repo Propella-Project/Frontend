@@ -12,7 +12,7 @@ export const dashboardApi = {
       
       // Combine the data (subscription status will be fetched separately by the app)
       return {
-        nickname: referralResponse.data?.user?.nickname || "Student",
+        nickname: referralResponse.data?.user?.nickname || "Learner",
         rank: "Rookie",  // Default rank, will be updated by subscription check
         level: 1,
         points: referralResponse.data?.user?.referral_points || 0,
@@ -25,7 +25,7 @@ export const dashboardApi = {
       console.warn("[Dashboard] API not available, using fallback");
       // Return fallback data
       return {
-        nickname: "Student",
+        nickname: "Learner",
         rank: "Rookie",
         level: 1,
         points: 0,

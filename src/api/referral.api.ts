@@ -58,8 +58,57 @@ export const referralApi = {
     }
     
     try {
+      console.log("[Referral] Fetching stats from:", ENDPOINTS.referrals.getStats);
       const response = await apiClient.get(ENDPOINTS.referrals.getStats);
-      return response.data;
+      console.log("[Referral] Raw response:", response.data);
+      
+      // Validate response structure - backend might return different format
+      const data = response.data;
+      
+      // Handle different possible response structures
+      let userData = data.user;
+      let referralsData = data.referrals;
+      
+      // If backend returns flat structure (not nested under 'user')
+      if (!userData && data.referral_code !== undefined) {
+        userData = {
+          id: data.id || "",
+          nickname: data.nickname || "",
+          referral_code: data.referral_code,
+          referral_points: data.referral_points ?? 0,
+          total_referrals: data.total_referrals ?? 0,
+          estimated_earnings: (data.referral_points ?? 0) * 3,
+        };
+      }
+      
+      // If still no user data, create fallback
+      if (!userData) {
+        console.warn("[Referral] Invalid response structure, using fallback");
+        userData = {
+          id: "",
+          nickname: "",
+          referral_code: generateFallbackCode(),
+          referral_points: 0,
+          total_referrals: 0,
+          estimated_earnings: 0,
+        };
+      }
+      
+      // Ensure all required fields exist
+      const normalizedStats: ReferralStats = {
+        user: {
+          id: userData.id || "",
+          nickname: userData.nickname || "",
+          referral_code: userData.referral_code || generateFallbackCode(),
+          referral_points: userData.referral_points ?? 0,
+          total_referrals: userData.total_referrals ?? 0,
+          estimated_earnings: userData.estimated_earnings ?? (userData.referral_points ?? 0) * 3,
+        },
+        referrals: referralsData || [],
+      };
+      
+      console.log("[Referral] Normalized stats:", normalizedStats);
+      return normalizedStats;
     } catch (error) {
       console.warn("[Referral] Failed to fetch stats:", error);
       // Return fallback data

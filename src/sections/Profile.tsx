@@ -129,7 +129,7 @@ export function Profile({ onBack }: ProfileProps) {
               <User className="w-8 h-8 text-[#0F0F11]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">{nickname || "Student"}</h2>
+              <h2 className="text-xl font-bold">{nickname || "Learner"}</h2>
               <p className="text-sm text-[#9CA3AF]">ID: {user_id?.slice(0, 8) || "..."}</p>
             </div>
           </div>

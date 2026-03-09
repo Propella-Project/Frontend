@@ -160,13 +160,19 @@ export const useUserStore = create<UserState>()(
           const dashboardData = await dashboardApi.getDashboard();
           set((prevState) => ({
             ...prevState,
-            nickname: dashboardData.nickname,
-            rank: dashboardData.rank,
-            level: dashboardData.level,
-            points: dashboardData.points,
-            streak: dashboardData.streak,
+            // Only update nickname if backend returns a valid non-empty value
+            // Preserve locally set nickname from onboarding if backend returns empty/default
+            nickname: dashboardData.nickname?.trim() && !dashboardData.nickname.toLowerCase().includes('student')
+              ? dashboardData.nickname 
+              : prevState.nickname || dashboardData.nickname || prevState.nickname,
+            rank: dashboardData.rank || prevState.rank,
+            level: dashboardData.level || prevState.level,
+            points: dashboardData.points ?? prevState.points,
+            streak: dashboardData.streak ?? prevState.streak,
             // Use user_id as username if username not provided
-            username: prevState.username || dashboardData.nickname || prevState.user_id,
+            username: prevState.username || (dashboardData.nickname?.trim() && !dashboardData.nickname.toLowerCase().includes('student') 
+              ? dashboardData.nickname 
+              : prevState.user_id),
           }));
           
           // Also fetch referral stats

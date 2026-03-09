@@ -83,7 +83,7 @@ export function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
         >
           <h1 className="text-2xl font-bold text-white">
-            {getGreeting()}, {user?.nickname || user?.username || "Student"}!
+            {getGreeting()}, {user?.nickname || user?.username || "Learner"}!
           </h1>
           <p className="text-gray-400 mt-1">
             Ready to continue your JAMB preparation journey?

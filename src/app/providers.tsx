@@ -1,10 +1,12 @@
-import { type ReactNode, useEffect, useState, useCallback, Suspense } from "react";
+import { type ReactNode, useEffect, useState, useCallback } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
-import { dashboardApi } from "@/api/dashboard.api";
+import { useStore } from "@/store";
+
 import { captureReferralData } from "@/utils/referral";
 import { useDailyRoadmapNotification } from "@/state/notification.store";
+import { useNotifications } from "@/hooks/useSettings";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle } from "lucide-react";
@@ -21,28 +23,6 @@ const initMswInDev = async () => {
 const loadPersistedTutor = () => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("aiTutor");
-};
-
-// Cookie helper for cross-subdomain token reading
-const getCookie = (name: string): string | null => {
-  if (typeof document === "undefined") return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) {
-    return parts.pop()?.split(";").shift() || null;
-  }
-  return null;
-};
-
-// Get auth token (checks cookies first for cross-subdomain, then localStorage)
-const getAuthToken = (): string | null => {
-  if (typeof window === "undefined") return null;
-  // Check cookies first (set by landing page with Domain=.propella.ng)
-  const cookieToken = getCookie("access_token") || getCookie("auth_token");
-  if (cookieToken) return cookieToken;
-  // Fallback to localStorage
-  return localStorage.getItem("propella_token") || 
-         localStorage.getItem("access_token");
 };
 
 interface ProvidersProps {
@@ -84,7 +64,24 @@ function ErrorFallback({ error, resetError }: { error: Error; resetError: () => 
 }
 
 /**
- * NotificationInitializer - Handles daily roadmap notifications
+ * BackendNotificationFetcher - Fetches notifications from backend
+ */
+function BackendNotificationFetcher() {
+  const { isAuthenticated } = useUserStore();
+  const { refetch } = useNotifications();
+
+  useEffect(() => {
+    // Only fetch notifications when user is authenticated
+    if (isAuthenticated) {
+      refetch();
+    }
+  }, [isAuthenticated, refetch]);
+
+  return null;
+}
+
+/**
+ * NotificationInitializer - Handles daily roadmap notifications and backend notifications
  */
 function NotificationInitializer({ children }: { children: ReactNode }) {
   const { checkAndAddDailyNotification, cleanupExpired } = useDailyRoadmapNotification();
@@ -113,7 +110,12 @@ function NotificationInitializer({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - only run on mount
 
-  return <>{children}</>;
+  return (
+    <>
+      <BackendNotificationFetcher />
+      {children}
+    </>
+  );
 }
 
 /**
@@ -123,8 +125,85 @@ function AppInitializer({ children }: { children: ReactNode }) {
   const { setUser, setAuthenticated, updateProfile, clearUser } = useUserStore();
   const { setIsInitializing } = useAppStore();
   const [initError, setInitError] = useState<Error | null>(null);
+  const [hasRehydrated, setHasRehydrated] = useState(false);
+
+  // Wait for BOTH stores (user store and main store) to rehydrate before doing anything
+  useEffect(() => {
+    let userStoreHydrated = false;
+    let mainStoreHydrated = false;
+    
+    const checkBothHydrated = () => {
+      if (userStoreHydrated && mainStoreHydrated) {
+        console.log("[AppInitializer] Both stores rehydrated");
+        setHasRehydrated(true);
+      }
+    };
+    
+    // Check user store
+    const checkUserStore = () => {
+      const persist = useUserStore.persist as unknown as { hasHydrated?: () => boolean };
+      if (persist.hasHydrated?.()) {
+        console.log("[AppInitializer] User store already hydrated");
+        userStoreHydrated = true;
+        checkBothHydrated();
+        return true;
+      }
+      return false;
+    };
+    
+    // Check main store
+    const checkMainStore = () => {
+      const persist = useStore.persist as unknown as { hasHydrated?: () => boolean };
+      if (persist.hasHydrated?.()) {
+        console.log("[AppInitializer] Main store already hydrated");
+        mainStoreHydrated = true;
+        checkBothHydrated();
+        return true;
+      }
+      return false;
+    };
+    
+    // Initial checks
+    const userStoreReady = checkUserStore();
+    const mainStoreReady = checkMainStore();
+    
+    // Subscribe to hydration events if not already hydrated
+    let unsubscribeUser: (() => void) | undefined;
+    let unsubscribeMain: (() => void) | undefined;
+    
+    if (!userStoreReady) {
+      unsubscribeUser = useUserStore.persist.onFinishHydration(() => {
+        console.log("[AppInitializer] User store rehydrated");
+        userStoreHydrated = true;
+        checkBothHydrated();
+      });
+    }
+    
+    if (!mainStoreReady) {
+      unsubscribeMain = useStore.persist.onFinishHydration(() => {
+        console.log("[AppInitializer] Main store rehydrated");
+        mainStoreHydrated = true;
+        checkBothHydrated();
+      });
+    }
+    
+    // Fallback timeout in case hydration events don't fire
+    const timeout = setTimeout(() => {
+      console.log("[AppInitializer] Hydration timeout - forcing continue");
+      setHasRehydrated(true);
+    }, 2000);
+    
+    return () => {
+      unsubscribeUser?.();
+      unsubscribeMain?.();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   const initializeApp = useCallback(async () => {
+    // Don't initialize until store is rehydrated
+    if (!hasRehydrated) return;
+    
     try {
       // Capture referral data from URL on app load
       captureReferralData();
@@ -135,31 +214,65 @@ function AppInitializer({ children }: { children: ReactNode }) {
         updateProfile({ ai_tutor_selected: savedTutor });
       }
       
-      // Check for token (cookies first for cross-subdomain, then localStorage)
-      const token = getAuthToken();
+      // Check if user has valid tokens
+      const token = localStorage.getItem("access_token") || localStorage.getItem("auth_token") || localStorage.getItem("propella_token");
+      const userId = localStorage.getItem("propella_user_id");
       
-      if (!token) {
-        setAuthenticated(false);
-        setIsInitializing(false);
-        return;
+      // Get current store state (which should have rehydrated)
+      const storeState = useUserStore.getState();
+      
+      console.log("[AppInitializer] Checking session:", { 
+        hasToken: !!token, 
+        hasUserId: !!userId, 
+        storeAuth: storeState.isAuthenticated,
+        storeUserId: storeState.user_id 
+      });
+      
+      // PRIORITY 1: If store is already authenticated and we have a token, keep them logged in
+      if (storeState.isAuthenticated && token) {
+        console.log("[AppInitializer] Store already authenticated, keeping session");
+        // Refresh user data in background
+        const { refreshUserData, fetchReferralStats } = useUserStore.getState();
+        refreshUserData().catch(() => {/* silent fail */});
+        fetchReferralStats().catch(() => {/* silent fail */});
       }
-
-      setAuthenticated(true);
-
-      try {
-        // Fetch dashboard data to initialize user state
-        const dashboardData = await dashboardApi.getDashboard();
+      // PRIORITY 2: If we have a token but store is not authenticated, restore the session
+      else if (token) {
+        console.log("[AppInitializer] Token found, restoring session...");
         
-        setUser({
-          nickname: dashboardData.nickname,
-          rank: dashboardData.rank,
-          level: dashboardData.level,
-          points: dashboardData.points,
-          streak: dashboardData.streak,
-        });
-      } catch (error) {
-        console.error("[AppInitializer] Dashboard fetch failed:", error);
-        // Don't fail initialization if dashboard fails - we'll use fallback data
+        // Restore from localStorage backup if available
+        const storedUser = localStorage.getItem("propella-user-store");
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            if (parsed.state?.user_id || userId) {
+              setUser({
+                user_id: parsed.state?.user_id || userId || "",
+                username: parsed.state?.username || "",
+                nickname: parsed.state?.nickname || "",
+              });
+              console.log("[AppInitializer] Restored user from localStorage");
+            }
+          } catch (e) {
+            console.error("[AppInitializer] Failed to parse stored user:", e);
+          }
+        }
+        
+        setAuthenticated(true);
+        console.log("[AppInitializer] Session restored for user:", userId || storeState.user_id);
+        
+        // Fetch fresh user data in background
+        const { refreshUserData, fetchReferralStats } = useUserStore.getState();
+        refreshUserData().catch(() => {/* silent fail */});
+        fetchReferralStats().catch(() => {/* silent fail */});
+      }
+      // PRIORITY 3: No token - clear auth state
+      else {
+        console.log("[AppInitializer] No token found, clearing auth state");
+        if (storeState.isAuthenticated) {
+          clearUser();
+        }
+        setAuthenticated(false);
       }
     } catch (error) {
       console.error("[AppInitializer] Initialization failed:", error);
@@ -167,11 +280,13 @@ function AppInitializer({ children }: { children: ReactNode }) {
     } finally {
       setIsInitializing(false);
     }
-  }, [setUser, setAuthenticated, setIsInitializing, updateProfile]);
+  }, [setUser, setAuthenticated, setIsInitializing, updateProfile, clearUser, hasRehydrated]);
 
   useEffect(() => {
-    initializeApp();
-  }, [initializeApp]);
+    if (hasRehydrated) {
+      initializeApp();
+    }
+  }, [initializeApp, hasRehydrated]);
 
   // Listen for auth failures
   useEffect(() => {
@@ -238,9 +353,7 @@ export function Providers({ children }: ProvidersProps) {
       <MswProvider>
         <AppInitializer>
           <NotificationInitializer>
-            <Suspense fallback={<LoadingScreen />}>
-              {children}
-            </Suspense>
+            {children}
             <Toaster 
               position="top-center"
               toastOptions={{

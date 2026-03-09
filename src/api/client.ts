@@ -119,11 +119,29 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+// Public endpoints that don't require authentication
+const PUBLIC_ENDPOINTS = [
+  "/accounts/token/",
+  "/accounts/token/refresh/",
+  "/accounts/register/",
+  "/accounts/verify-email/",
+  "/accounts/resend-code/",
+  "/accounts/forgot-password/",
+  "/accounts/reset-password/",
+];
+
+// Check if URL is a public endpoint
+function isPublicEndpoint(url: string | undefined): boolean {
+  if (!url) return false;
+  return PUBLIC_ENDPOINTS.some((endpoint) => url.includes(endpoint));
+}
+
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getToken();
-    if (token && config.headers) {
+    // Only add auth header if we have a token AND it's not a public endpoint
+    if (token && config.headers && !isPublicEndpoint(config.url)) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

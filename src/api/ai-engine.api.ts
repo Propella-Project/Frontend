@@ -39,7 +39,7 @@ export interface QuizQuestion {
 }
 
 export interface QuizGenerateRequest {
-  subject: string;
+  subjects: string;  // AI Engine expects 'subjects' (plural), not 'subject'
   topic: string;  // Required by AI Engine
   difficulty?: "easy" | "medium" | "hard";
   number_of_questions?: number;
@@ -216,7 +216,64 @@ export const aiEngineApi = {
         "/quiz/generate",
         request
       );
-      return response.data;
+      
+      // Validate response structure
+      const data = response.data;
+      console.log("[AI Engine] Raw quiz response:", JSON.stringify(data, null, 2));
+      console.log("[AI Engine] Response type:", typeof data);
+      console.log("[AI Engine] Response keys:", Object.keys(data || {}));
+      
+      // Handle different response formats
+      let questions: QuizQuestion[] = [];
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawData = data as any;
+      
+      if (Array.isArray(rawData)) {
+        // Response is directly an array of questions
+        console.log("[AI Engine] Response is array with", rawData.length, "items");
+        questions = rawData;
+      } else if (rawData.questions && Array.isArray(rawData.questions)) {
+        // Response has questions property
+        console.log("[AI Engine] Response has questions array with", rawData.questions.length, "items");
+        questions = rawData.questions;
+      } else if (rawData.data && Array.isArray(rawData.data)) {
+        // Response is nested under data property
+        console.log("[AI Engine] Response has nested data array with", rawData.data.length, "items");
+        questions = rawData.data;
+      } else {
+        console.error("[AI Engine] Unexpected response format:", rawData);
+        console.error("[AI Engine] Expected array or object with questions/data property");
+        throw new Error("Invalid response format from AI Engine");
+      }
+      
+      // Validate each question has required fields (with lenient validation)
+      const validQuestions = questions.filter((q, idx) => {
+        const hasQuestion = q.question && typeof q.question === 'string' && q.question.trim() !== '';
+        const hasOptions = Array.isArray(q.options) && q.options.length >= 2;
+        const hasCorrectAnswer = q.correct_answer !== undefined && q.correct_answer !== null;
+        
+        if (!hasQuestion) {
+          console.warn(`[AI Engine] Question ${idx} missing valid question text:`, q);
+        }
+        if (!hasOptions) {
+          console.warn(`[AI Engine] Question ${idx} missing valid options:`, q);
+        }
+        if (!hasCorrectAnswer) {
+          console.warn(`[AI Engine] Question ${idx} missing correct_answer:`, q);
+        }
+        
+        return hasQuestion && hasOptions && hasCorrectAnswer;
+      });
+      
+      console.log(`[AI Engine] Valid questions: ${validQuestions.length}/${questions.length}`);
+      
+      if (validQuestions.length === 0) {
+        console.error("[AI Engine] All questions failed validation. Sample question:", questions[0]);
+        throw new Error("No valid questions in AI Engine response");
+      }
+      
+      return { questions: validQuestions };
     } catch (error) {
       const axiosError = error as AxiosError;
       console.error("[AI Engine] Quiz generation failed:", axiosError.message);
@@ -275,11 +332,24 @@ export const aiEngineApi = {
   updateProgress: async (
     request: ProgressUpdateRequest
   ): Promise<{ message: string }> => {
-    const response = await aiEngineClient.post<{ message: string }>(
-      "/progress/update",
-      request
-    );
-    return response.data;
+    try {
+      // Validate request before sending
+      if (!request.student_id || !request.subject || !request.topic || request.mastery_score === undefined) {
+        console.warn("[AI Engine] Invalid progress update request:", request);
+        return { message: "Invalid request - skipping" };
+      }
+      
+      const response = await aiEngineClient.post<{ message: string }>(
+        "/progress/update",
+        request
+      );
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      console.warn("[AI Engine] Progress update failed:", axiosError.message);
+      // Return success anyway - don't block user flow for progress tracking
+      return { message: "Failed to update progress - continuing anyway" };
+    }
   },
 
   getProgress: async (

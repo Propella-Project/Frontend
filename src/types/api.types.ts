@@ -45,8 +45,8 @@ export interface ExamProfilePayload {
   user?: number;
   nickname?: string;
   exam_date: string;  // YYYY-MM-DD
-  daily_hours: number;
-  study_hours_per_day?: number;  // Alias for daily_hours
+  daily_hours?: number;  // Legacy field - use study_hours_per_day instead
+  study_hours_per_day: number;  // Backend expects this field name
   personality?: string;
   ai_tutor_selected?: string;
   ai_voice_enabled?: boolean;

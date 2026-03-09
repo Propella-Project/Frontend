@@ -53,19 +53,37 @@ export async function generateDiagnosticQuiz(
     for (const subject of subjects) {
       try {
         const response = await quizApi.getDiagnosticQuiz(subject.name);
+        console.log(`[DiagnosticQuiz] API response for ${subject.name}:`, response);
+        
+        // Validate response is an array
+        if (!Array.isArray(response)) {
+          console.warn(`[DiagnosticQuiz] API returned non-array for ${subject.name}:`, response);
+          continue;
+        }
+        
         // Convert API response to Question format
-        const convertedQuestions = response.slice(0, questionsPerSubject).map((q, index) => ({
-          id: `api_${subject.id}_${index}_${Date.now()}`,
-          subjectId: subject.id,
-          topicId: subject.topics[0]?.id || "general",
-          year: new Date().getFullYear(),
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.options.indexOf(q.correct_answer),
-          explanation: `The correct answer is ${q.correct_answer}`,
-          difficulty: "medium" as const,
-          topic: q.subject || "General",
-        }));
+        const convertedQuestions = response.slice(0, questionsPerSubject).map((q, index) => {
+          // The API returns DiagnosticQuestion format with correct_answer as string
+          // Find correct answer index from options array
+          let correctIndex = 0;
+          if (q.options && q.correct_answer) {
+            correctIndex = q.options.indexOf(q.correct_answer);
+            if (correctIndex === -1) correctIndex = 0;
+          }
+          
+          return {
+            id: `api_${subject.id}_${index}_${Date.now()}`,
+            subjectId: subject.id,
+            topicId: subject.topics[0]?.id || "general",
+            year: new Date().getFullYear(),
+            question: q.question,
+            options: q.options,
+            correctAnswer: correctIndex,
+            explanation: `The correct answer is ${q.correct_answer}`,
+            difficulty: "medium" as const,
+            topic: q.subject || "General",
+          };
+        });
         apiQuestions.push(...convertedQuestions);
       } catch (subjectError) {
         console.warn(`[DiagnosticQuiz] API failed for ${subject.name}:`, subjectError);

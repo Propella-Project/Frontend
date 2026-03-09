@@ -125,21 +125,77 @@ export const subscriptionApi = {
         ENDPOINTS.subscriptions.subscribe,
         payload,
       );
-      console.log("[Subscription] Response:", response.data);
-      return response.data;
+      console.log("[Subscription] Raw response:", response.data);
+      
+      // Handle nested response structure: { status, message, data: { link, ... } }
+      const responseWrapper = response.data;
+      if (!responseWrapper) {
+        throw new Error("Empty response from server");
+      }
+      
+      // Check for error in wrapper
+      if (responseWrapper.status === 'error' || 
+          responseWrapper.message?.toLowerCase().includes('error')) {
+        throw new Error(responseWrapper.message || "Subscription failed");
+      }
+      
+      // Extract actual data from nested structure
+      const data = responseWrapper.data || responseWrapper;
+      console.log("[Subscription] Extracted data:", data);
+      
+      // Validate required fields - check multiple possible field names
+      const paymentLink = data.link || data.payment_link || data.payment_url || data.checkout_url;
+      if (!paymentLink) {
+        console.error("[Subscription] No payment link in response:", responseWrapper);
+        throw new Error("Payment link not received from server. Please try again.");
+      }
+      
+      // Normalize response to match SubscribeResponse interface
+      return {
+        id: data.id || data.transaction_id || data.ref || String(Date.now()),
+        status: responseWrapper.status || 'success',
+        amount: data.amount || 0,
+        currency: data.currency || 'NGN',
+        payment_link: paymentLink,
+        transaction_ref: data.transaction_ref || data.transaction_id || data.ref,
+        transaction_id: data.transaction_id || data.id || data.ref,
+        created_at: data.created_at || new Date().toISOString(),
+      };
     } catch (error) {
       console.error("[Subscription] Error:", error);
-      const axiosError = error as { response?: { status: number; data: unknown } };
+      const axiosError = error as { response?: { status: number; data: unknown }; message?: string };
+      
+      // If it's already a processed error, re-throw it
+      if (error instanceof Error && error.message.includes("Payment link")) {
+        throw error;
+      }
+      
       if (axiosError.response) {
         console.error("[Subscription] Error status:", axiosError.response.status);
         console.error("[Subscription] Error data:", axiosError.response.data);
         
-        // Handle 401 specifically
+        // Handle specific status codes
+        const errorData = axiosError.response.data as { detail?: string; message?: string; error?: string };
+        const errorMessage = errorData?.detail || errorData?.message || errorData?.error;
+        
         if (axiosError.response.status === 401) {
           throw new Error("Please log in to subscribe");
         }
+        if (axiosError.response.status === 400) {
+          throw new Error(errorMessage || "Invalid subscription request. Please check your plan selection.");
+        }
+        if (axiosError.response.status === 500) {
+          throw new Error("Server error. Please try again later or contact support.");
+        }
+        
+        throw new Error(errorMessage || `Subscription failed (Error ${axiosError.response.status})`);
       }
-      throw error;
+      
+      // Network or other errors
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Failed to initiate subscription. Please try again.");
     }
   },
 

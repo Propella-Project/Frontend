@@ -49,15 +49,24 @@ export function Dashboard() {
     fetchReferralStats();
     refreshUserData();
     checkSubscriptionStatus().finally(() => setIsCheckingPayment(false));
+    
+    // Check if user just returned from successful payment
+    const justPaid = localStorage.getItem("propella_payment_verified");
+    if (justPaid === "true") {
+      toast.success("🎉 Welcome to PROPELLA Pro! Your roadmap is now unlocked.");
+      // Clear the flag so we don't show it again on refresh
+      localStorage.removeItem("propella_payment_verified");
+    }
   }, [fetchReferralStats, refreshUserData, checkSubscriptionStatus]);
 
   if (!user) return null;
 
   // Get display name - fallback chain for better UX
   const displayName = useMemo(() => {
-    const name = nickname || user.nickname || '';
-    // If name is empty or contains "student" (case insensitive), use a friendly fallback
-    if (!name || name.toLowerCase().includes('student')) {
+    // Priority: 1. nickname from user store (set during onboarding), 2. user.nickname from backend, 3. Fallback
+    const name = nickname?.trim() || user.nickname?.trim() || '';
+    // Only use fallback if name is truly empty
+    if (!name) {
       return 'Learner';
     }
     return name;
