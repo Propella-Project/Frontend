@@ -1,7 +1,8 @@
 // PROPELLA API Client
 import { getCookie } from "./cookies";
+import { ENV } from "@/config/env";
 
-const API_BASE_URL = ""; // Use relative URLs - Vercel proxies to backend
+const API_BASE_URL = ENV.API_BASE_URL;
 
 interface ApiResponse<T = unknown> {
   success: boolean;
