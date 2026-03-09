@@ -2,7 +2,11 @@
 export const ENV = {
   // Main Backend API
   // Note: The API endpoints are under /api path
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api",
+  // UPDATE THIS: Your backend API URL
+  // Examples:
+  // - Local development: "http://localhost:8000/api"
+  // - Deployed backend: "https://your-api-domain.com/api"
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
   API_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT || "30000"),
   
   // AI Engine API

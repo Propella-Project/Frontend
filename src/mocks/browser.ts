@@ -22,7 +22,8 @@ export async function initMocks(): Promise<void> {
   
   // Check if mocks should be enabled
   const urlParams = new URLSearchParams(window.location.search);
-  const enableMsw = urlParams.get("msw") === "true" || import.meta.env.DEV;
+  // ENABLE MOCK BY DEFAULT for demo - remove 'true' to disable
+  const enableMsw = urlParams.get("msw") === "true" || import.meta.env.DEV || true;
   
   if (!enableMsw) {
     console.log("[Mock] Mocking disabled. Use ?msw=true to enable.");

@@ -15,9 +15,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://propella-api.vercel.app',
+        // UPDATE THIS: Match your backend URL
+        target: 'http://localhost:8000', // or your deployed backend
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

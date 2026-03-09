@@ -47,13 +47,18 @@ function LoadingScreen({ message = "Loading..." }: { message?: string }) {
  * Error Fallback Component
  */
 function ErrorFallback({ error, resetError }: { error: Error; resetError: () => void }) {
+  // Handle case where error.message might be an object
+  const errorMessage = typeof error.message === 'object' 
+    ? JSON.stringify(error.message) 
+    : (error.message || "An unexpected error occurred");
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="text-center space-y-4 max-w-md">
         <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
         <h1 className="text-xl font-semibold">Something went wrong</h1>
         <p className="text-muted-foreground text-sm">
-          {error.message || "An unexpected error occurred"}
+          {errorMessage}
         </p>
         <Button onClick={resetError} variant="default">
           Try Again

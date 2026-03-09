@@ -88,10 +88,12 @@ export class ErrorBoundary extends Component<Props, State> {
               {this.state.error && (
                 <div className="rounded-md bg-destructive/10 p-4">
                   <p className="text-sm font-medium text-destructive">
-                    {this.state.error.name}
+                    {String(this.state.error.name)}
                   </p>
                   <p className="text-sm text-destructive/80 mt-1">
-                    {this.state.error.message}
+                    {typeof this.state.error.message === 'object' 
+                      ? JSON.stringify(this.state.error.message) 
+                      : String(this.state.error.message || 'Unknown error')}
                   </p>
                   {import.meta.env.DEV && this.state.errorInfo && (
                     <details className="mt-2">

@@ -270,8 +270,17 @@ export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     // Server returned error response
     if (error.response?.data) {
-      const data = error.response.data as { detail?: string; message?: string; error?: string };
-      return data.detail || data.message || data.error || `Error ${error.response.status}`;
+      const data = error.response.data as { detail?: string; message?: string | object; error?: string | object };
+      // Helper to extract string from potentially object value
+      const extractString = (val: string | object | undefined): string => {
+        if (typeof val === 'object' && val !== null) {
+          return (val as {message?: string; code?: string}).message || 
+                 (val as {message?: string; code?: string}).code || 
+                 JSON.stringify(val);
+        }
+        return val || '';
+      };
+      return data.detail || extractString(data.message) || extractString(data.error) || `Error ${error.response.status}`;
     }
     // Network error
     if (isNetworkError(error)) {
