@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UserProfile } from "@/types/api.types";
-import referralApi from "@/api/referral.api";
-import { dashboardApi } from "@/api/dashboard.api";
+// import referralApi from "@/api/referral.api";
+// import { dashboardApi } from "@/api/dashboard.api";
 
 interface UserState extends UserProfile {
   isAuthenticated: boolean;
@@ -119,7 +119,7 @@ export const useUserStore = create<UserState>()(
         }));
       },
 
-      // Fetch live referral stats from backend
+      // Fetch live referral stats from backend - DISABLED (endpoint not available)
       fetchReferralStats: async () => {
         // Only fetch if user is authenticated
         const state = get();
@@ -127,16 +127,17 @@ export const useUserStore = create<UserState>()(
           console.log("[Referral] Skipping fetch - user not authenticated");
           return;
         }
-        try {
-          const stats = await referralApi.getReferralStats();
-          set({
-            referralCode: stats.user.referral_code,
-            referralPoints: stats.user.referral_points,
-            totalReferrals: stats.user.total_referrals,
-          });
-        } catch (error) {
-          console.error("Failed to fetch referral stats:", error);
-        }
+        console.log("[Referral] fetchReferralStats disabled - endpoint not available");
+        // try {
+        //   const stats = await referralApi.getReferralStats();
+        //   set({
+        //     referralCode: stats.user.referral_code,
+        //     referralPoints: stats.user.referral_points,
+        //     totalReferrals: stats.user.total_referrals,
+        //   });
+        // } catch (error) {
+        //   console.error("Failed to fetch referral stats:", error);
+        // }
       },
 
       // Generate new referral code (local fallback)
@@ -148,7 +149,7 @@ export const useUserStore = create<UserState>()(
         return fallbackCode;
       },
 
-      // Refresh all user data from backend
+      // Refresh all user data from backend - DISABLED (endpoint not available)
       refreshUserData: async () => {
         // Only refresh if user is authenticated
         const state = get();
@@ -156,31 +157,32 @@ export const useUserStore = create<UserState>()(
           console.log("[User] Skipping refresh - user not authenticated");
           return;
         }
-        try {
-          const dashboardData = await dashboardApi.getDashboard();
-          set((prevState) => ({
-            ...prevState,
-            // Only update nickname if backend returns a valid non-empty value
-            // Preserve locally set nickname from onboarding if backend returns empty/default
-            nickname: dashboardData.nickname?.trim() && !dashboardData.nickname.toLowerCase().includes('student')
-              ? dashboardData.nickname 
-              : prevState.nickname || dashboardData.nickname || prevState.nickname,
-            rank: dashboardData.rank || prevState.rank,
-            level: dashboardData.level || prevState.level,
-            points: dashboardData.points ?? prevState.points,
-            streak: dashboardData.streak ?? prevState.streak,
-            // Use user_id as username if username not provided
-            username: prevState.username || (dashboardData.nickname?.trim() && !dashboardData.nickname.toLowerCase().includes('student') 
-              ? dashboardData.nickname 
-              : prevState.user_id),
-          }));
-          
-          // Also fetch referral stats
-          const { fetchReferralStats } = get();
-          await fetchReferralStats();
-        } catch (error) {
-          console.error("Failed to refresh user data:", error);
-        }
+        console.log("[User] refreshUserData disabled - endpoint not available");
+        // try {
+        //   const dashboardData = await dashboardApi.getDashboard();
+        //   set((prevState) => ({
+        //     ...prevState,
+        //     // Only update nickname if backend returns a valid non-empty value
+        //     // Preserve locally set nickname from onboarding if backend returns empty/default
+        //     nickname: dashboardData.nickname?.trim() && !dashboardData.nickname.toLowerCase().includes('student')
+        //       ? dashboardData.nickname 
+        //       : prevState.nickname || dashboardData.nickname || prevState.nickname,
+        //     rank: dashboardData.rank || prevState.rank,
+        //     level: dashboardData.level || prevState.level,
+        //     points: dashboardData.points ?? prevState.points,
+        //     streak: dashboardData.streak ?? prevState.streak,
+        //     // Use user_id as username if username not provided
+        //     username: prevState.username || (dashboardData.nickname?.trim() && !dashboardData.nickname.toLowerCase().includes('student') 
+        //       ? dashboardData.nickname 
+        //       : prevState.user_id),
+        //   }));
+        //   
+        //   // Also fetch referral stats
+        //   const { fetchReferralStats } = get();
+        //   await fetchReferralStats();
+        // } catch (error) {
+        //   console.error("Failed to refresh user data:", error);
+        // }
       },
     }),
     {

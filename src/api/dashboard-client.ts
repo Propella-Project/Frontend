@@ -43,7 +43,8 @@ export async function get<T>(endpoint: string): Promise<T> {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.message || `Request failed: ${response.status}`);
+    const msg = error.detail || (typeof error.message === 'object' ? error.message?.message || error.message?.code : error.message) || `Request failed: ${response.status}`;
+    throw new Error(msg);
   }
   
   return response.json();
@@ -60,7 +61,8 @@ export async function post<T>(endpoint: string, data?: unknown): Promise<T> {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.message || `Request failed: ${response.status}`);
+    const msg = error.detail || (typeof error.message === 'object' ? error.message?.message || error.message?.code : error.message) || `Request failed: ${response.status}`;
+    throw new Error(msg);
   }
   
   return response.json();
@@ -77,7 +79,8 @@ export async function put<T>(endpoint: string, data?: unknown): Promise<T> {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.message || `Request failed: ${response.status}`);
+    const msg = error.detail || (typeof error.message === 'object' ? error.message?.message || error.message?.code : error.message) || `Request failed: ${response.status}`;
+    throw new Error(msg);
   }
   
   return response.json();
@@ -94,7 +97,8 @@ export async function patch<T>(endpoint: string, data?: unknown): Promise<T> {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.message || `Request failed: ${response.status}`);
+    const msg = error.detail || (typeof error.message === 'object' ? error.message?.message || error.message?.code : error.message) || `Request failed: ${response.status}`;
+    throw new Error(msg);
   }
   
   return response.json();
@@ -110,7 +114,8 @@ export async function del<T>(endpoint: string): Promise<T> {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.message || `Request failed: ${response.status}`);
+    const msg = error.detail || (typeof error.message === 'object' ? error.message?.message || error.message?.code : error.message) || `Request failed: ${response.status}`;
+    throw new Error(msg);
   }
   
   return response.json();

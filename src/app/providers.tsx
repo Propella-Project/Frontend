@@ -6,7 +6,7 @@ import { useStore } from "@/store";
 
 import { captureReferralData } from "@/utils/referral";
 import { useDailyRoadmapNotification } from "@/state/notification.store";
-import { useNotifications } from "@/hooks/useSettings";
+// import { useNotifications } from "@/hooks/useSettings";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle } from "lucide-react";
@@ -65,17 +65,18 @@ function ErrorFallback({ error, resetError }: { error: Error; resetError: () => 
 
 /**
  * BackendNotificationFetcher - Fetches notifications from backend
+ * DISABLED: Notification endpoint not available
  */
 function BackendNotificationFetcher() {
-  const { isAuthenticated } = useUserStore();
-  const { refetch } = useNotifications();
+  // const { isAuthenticated } = useUserStore();
+  // const { refetch } = useNotifications();
 
-  useEffect(() => {
-    // Only fetch notifications when user is authenticated
-    if (isAuthenticated) {
-      refetch();
-    }
-  }, [isAuthenticated, refetch]);
+  // useEffect(() => {
+  //   // Only fetch notifications when user is authenticated
+  //   if (isAuthenticated) {
+  //     refetch();
+  //   }
+  // }, [isAuthenticated, refetch]);
 
   return null;
 }

@@ -97,9 +97,19 @@ async function apiFetch<T>(
         // Field error: e.g., "user with this Email already exists."
         errorMessage = data.email[0];
       } else if (data.error) {
-        errorMessage = data.error;
+        // Handle case where error is an object {code, message}
+        if (typeof data.error === 'object' && data.error !== null) {
+          errorMessage = data.error.message || data.error.code || JSON.stringify(data.error);
+        } else {
+          errorMessage = String(data.error);
+        }
       } else if (data.message) {
-        errorMessage = data.message;
+        // Handle case where message is an object
+        if (typeof data.message === 'object' && data.message !== null) {
+          errorMessage = data.message.message || data.message.code || JSON.stringify(data.message);
+        } else {
+          errorMessage = String(data.message);
+        }
       } else if (typeof data === "object" && Object.keys(data).length > 0) {
         // If there are other field errors, pick the first one
         const firstField = Object.keys(data).find(
@@ -229,11 +239,17 @@ export async function editUser(userId: number, data: any) {
   });
 }
 
-// User management (authenticated)
+// User management (authenticated) - DISABLED (endpoint not available)
 export async function getUser() {
-  return apiFetch<UserData>("/api/accounts/user/", {
-    method: "GET",
-  });
+  // return apiFetch<UserData>("/api/accounts/user/", {
+  //   method: "GET",
+  // });
+  console.log("[API] getUser disabled - endpoint not available");
+  return {
+    success: true,
+    data: undefined,
+    error: undefined,
+  } as ApiResponse<UserData>;
 }
 
 // Exam Profile (authenticated)

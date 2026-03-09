@@ -134,9 +134,12 @@ export const subscriptionApi = {
       }
       
       // Check for error in wrapper
+      const messageStr = typeof responseWrapper.message === 'object' 
+        ? responseWrapper.message?.message || responseWrapper.message?.code || JSON.stringify(responseWrapper.message)
+        : responseWrapper.message;
       if (responseWrapper.status === 'error' || 
-          responseWrapper.message?.toLowerCase().includes('error')) {
-        throw new Error(responseWrapper.message || "Subscription failed");
+          messageStr?.toLowerCase().includes('error')) {
+        throw new Error(messageStr || "Subscription failed");
       }
       
       // Extract actual data from nested structure
@@ -175,8 +178,14 @@ export const subscriptionApi = {
         console.error("[Subscription] Error data:", axiosError.response.data);
         
         // Handle specific status codes
-        const errorData = axiosError.response.data as { detail?: string; message?: string; error?: string };
-        const errorMessage = errorData?.detail || errorData?.message || errorData?.error;
+        const errorData = axiosError.response.data as { detail?: string; message?: string | object; error?: string | object };
+        const extractMessage = (val: string | object | undefined): string => {
+          if (typeof val === 'object' && val !== null) {
+            return (val as {message?: string; code?: string}).message || (val as {message?: string; code?: string}).code || JSON.stringify(val);
+          }
+          return val || '';
+        };
+        const errorMessage = errorData?.detail || extractMessage(errorData?.message) || extractMessage(errorData?.error);
         
         if (axiosError.response.status === 401) {
           throw new Error("Please log in to subscribe");

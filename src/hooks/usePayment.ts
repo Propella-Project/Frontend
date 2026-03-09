@@ -188,7 +188,10 @@ export function usePayment(): UsePaymentReturn {
 
           return true;
         } else {
-          toast.error(response.message || "Payment verification failed");
+          const msg = typeof response.message === 'object' && response.message !== null 
+            ? (response.message as {message?: string; code?: string}).message || (response.message as {message?: string; code?: string}).code 
+            : response.message;
+          toast.error(msg || "Payment verification failed");
           return false;
         }
       } catch (err) {

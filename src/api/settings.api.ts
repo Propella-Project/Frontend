@@ -9,17 +9,21 @@ export const settingsApi = {
     return response.data;
   },
 
-  // Get notifications
+  // Get notifications - DISABLED (endpoint not available)
   getNotifications: async (): Promise<Notification[]> => {
-    const response = await apiClient.get(ENDPOINTS.settings.notifications);
-    return response.data;
+    // const response = await apiClient.get(ENDPOINTS.settings.notifications);
+    // return response.data;
+    return []; // Return empty array until endpoint is available
   },
 
-  // Mark notification as read
-  markNotificationAsRead: async (notificationId: string): Promise<void> => {
-    const response = await apiClient.patch(
-      `${ENDPOINTS.settings.notifications}${notificationId}/read/`
-    );
-    return response.data;
+  // Mark notification as read - DISABLED (endpoint not available)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  markNotificationAsRead: async (_notificationId: string): Promise<void> => {
+    // const response = await apiClient.patch(
+    //   `${ENDPOINTS.settings.notifications}${notificationId}/read/`
+    // );
+    // return response.data;
+    console.log("[Notifications] markAsRead disabled - endpoint not available");
+    return Promise.resolve();
   },
 };
