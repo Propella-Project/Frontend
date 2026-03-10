@@ -234,23 +234,27 @@ function AppInitializer({ children }: { children: ReactNode }) {
         storeUserId: storeState.user_id 
       });
       
-      // ONLY trust the current store state - DO NOT auto-restore from localStorage
-      // This prevents auto-login when user hasn't explicitly logged in this session
-      if (storeState.isAuthenticated) {
-        console.log("[AppInitializer] Store is authenticated, keeping session");
-        // User explicitly logged in this session - refresh data in background
+      // Check Zustand store state (which is rehydrated from localStorage)
+      // If store says authenticated, trust it and keep session
+      // If store says not authenticated, clear tokens to prevent issues
+      if (storeState.isAuthenticated && storeState.user_id) {
+        console.log("[AppInitializer] Store has authenticated session, keeping it");
+        // Refresh user data in background if we have a token
         if (token) {
           const { refreshUserData, fetchReferralStats } = useUserStore.getState();
           refreshUserData().catch(() => {/* silent fail */});
           fetchReferralStats().catch(() => {/* silent fail */});
         }
       } else {
-        // User is not authenticated in this session - clear any stored auth data
-        // to prevent redirect loops and require explicit login
-        console.log("[AppInitializer] Not authenticated - requiring explicit login");
-        clearUser();
+        // Store says not authenticated - clear any leftover tokens
+        // This prevents conflicts between localStorage tokens and Zustand state
+        console.log("[AppInitializer] Store shows not authenticated - clearing tokens");
+        if (storeState.isAuthenticated || storeState.user_id) {
+          clearUser();
+        }
+        setAuthenticated(false);
         
-        // Clear tokens to prevent auto-login on next refresh
+        // Clear conflicting tokens
         localStorage.removeItem("access_token");
         localStorage.removeItem("auth_token");
         localStorage.removeItem("propella_token");
