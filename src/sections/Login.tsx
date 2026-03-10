@@ -10,13 +10,11 @@ import { setCookie } from "@/lib/cookies";
 import { RocketLogo } from "@/components/logo/RocketLogo";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUserStore } from "@/state/user.store";
-import { useAppStore } from "@/state/app.store";
 
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser, setAuthenticated } = useUserStore();
-  const { setIsInitializing } = useAppStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -58,9 +56,6 @@ export function Login() {
       // Update auth state BEFORE navigation
       setAuthenticated(true);
       
-      // Also mark initialization as complete so guards don't block
-      setIsInitializing(false);
-      
       toast.success("Login successful!");
       setIsLoading(false);
       
@@ -74,10 +69,11 @@ export function Login() {
       
       console.log("[Login] Navigating to:", returnTo);
       
-      // Small delay to ensure state is propagated
+      // Longer delay to ensure Zustand state is persisted and propagated
+      // This prevents the redirect loop caused by race conditions
       setTimeout(() => {
         navigate(returnTo, { replace: true });
-      }, 100);
+      }, 500);
     } else {
       setIsLoading(false);
       toast.error(result.error || "Login failed");

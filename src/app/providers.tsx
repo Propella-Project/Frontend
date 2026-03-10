@@ -234,51 +234,28 @@ function AppInitializer({ children }: { children: ReactNode }) {
         storeUserId: storeState.user_id 
       });
       
-      // PRIORITY 1: If store is already authenticated and we have a token, keep them logged in
-      if (storeState.isAuthenticated && token) {
-        console.log("[AppInitializer] Store already authenticated, keeping session");
-        // Refresh user data in background
-        const { refreshUserData, fetchReferralStats } = useUserStore.getState();
-        refreshUserData().catch(() => {/* silent fail */});
-        fetchReferralStats().catch(() => {/* silent fail */});
-      }
-      // PRIORITY 2: If we have a token but store is not authenticated, restore the session
-      else if (token) {
-        console.log("[AppInitializer] Token found, restoring session...");
-        
-        // Restore from localStorage backup if available
-        const storedUser = localStorage.getItem("propella-user-store");
-        if (storedUser) {
-          try {
-            const parsed = JSON.parse(storedUser);
-            if (parsed.state?.user_id || userId) {
-              setUser({
-                user_id: parsed.state?.user_id || userId || "",
-                username: parsed.state?.username || "",
-                nickname: parsed.state?.nickname || "",
-              });
-              console.log("[AppInitializer] Restored user from localStorage");
-            }
-          } catch (e) {
-            console.error("[AppInitializer] Failed to parse stored user:", e);
-          }
+      // ONLY trust the current store state - DO NOT auto-restore from localStorage
+      // This prevents auto-login when user hasn't explicitly logged in this session
+      if (storeState.isAuthenticated) {
+        console.log("[AppInitializer] Store is authenticated, keeping session");
+        // User explicitly logged in this session - refresh data in background
+        if (token) {
+          const { refreshUserData, fetchReferralStats } = useUserStore.getState();
+          refreshUserData().catch(() => {/* silent fail */});
+          fetchReferralStats().catch(() => {/* silent fail */});
         }
+      } else {
+        // User is not authenticated in this session - clear any stored auth data
+        // to prevent redirect loops and require explicit login
+        console.log("[AppInitializer] Not authenticated - requiring explicit login");
+        clearUser();
         
-        setAuthenticated(true);
-        console.log("[AppInitializer] Session restored for user:", userId || storeState.user_id);
-        
-        // Fetch fresh user data in background
-        const { refreshUserData, fetchReferralStats } = useUserStore.getState();
-        refreshUserData().catch(() => {/* silent fail */});
-        fetchReferralStats().catch(() => {/* silent fail */});
-      }
-      // PRIORITY 3: No token - clear auth state
-      else {
-        console.log("[AppInitializer] No token found, clearing auth state");
-        if (storeState.isAuthenticated) {
-          clearUser();
-        }
-        setAuthenticated(false);
+        // Clear tokens to prevent auto-login on next refresh
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("propella_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("propella_user_id");
       }
     } catch (error) {
       console.error("[AppInitializer] Initialization failed:", error);
