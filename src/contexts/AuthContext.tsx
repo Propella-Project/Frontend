@@ -1,13 +1,14 @@
 /**
- * Auth Context - Simple Cookie-Based Authentication
+ * Auth Context - Syncs with UserStore for consistent auth state
  * 
- * Just uses cookies set by landing page. No blocking auth checks.
- * Shows notification if API calls fail due to auth.
+ * This context wraps the Zustand user store to provide a consistent
+ * auth interface across the app. It syncs with useUserStore state.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useUserStore } from "@/state/user.store";
+import { useAppStore } from "@/state/app.store";
 import { ENV } from "@/config/env";
-import { toast } from "sonner";
 
 // User type
 export interface User {
@@ -44,11 +45,26 @@ interface AuthProviderProps {
 const API_BASE_URL = ENV.API_BASE_URL.replace(/\/api$/, '');
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const { isAuthenticated, user_id, nickname, username, clearUser } = useUserStore();
+  const { isInitializing } = useAppStore();
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Try to fetch user data, but don't block if it fails
-  const refreshUser = useCallback(async (): Promise<void> => {
+  // Sync local user state with Zustand store
+  useEffect(() => {
+    if (isAuthenticated && user_id) {
+      setUser({
+        id: user_id,
+        email: username || `${user_id}@propella.ng`,
+        username: username || user_id,
+        nickname: nickname || username || user_id,
+      });
+    } else {
+      setUser(null);
+    }
+  }, [isAuthenticated, user_id, nickname, username]);
+
+  // Try to fetch user data from backend
+  const refreshUser = async (): Promise<void> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
         method: "GET",
@@ -59,20 +75,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-
       } else if (response.status === 401) {
-        // Not authenticated - show toast but don't block
-        toast.error("Session expired. Some features may not work.");
-        setUser({ id: "guest", email: "guest@propella.ng" });
+        console.log("[Auth] Session expired");
       }
     } catch (err) {
-      // API error - silently fail, user can still use dashboard
       console.log("[Auth] Could not fetch user data:", err);
     }
-  }, []);
+  };
 
   // Logout
-  const logout = useCallback(async (): Promise<void> => {
+  const logout = async (): Promise<void> => {
     try {
       await fetch(`${API_BASE_URL}/api/accounts/logout/`, {
         method: "POST",
@@ -81,20 +93,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       console.error("[Auth] Logout failed:", err);
     } finally {
+      clearUser();
       setUser(null);
       window.location.href = ENV.LANDING_PAGE_URL;
     }
-  }, []);
-
-  // Fetch user on mount (non-blocking)
-  useEffect(() => {
-    refreshUser().finally(() => setIsLoading(false));
-  }, [refreshUser]);
+  };
 
   const value: AuthContextType = {
     user,
-    isLoading,
-    isAuthenticated: true, // Always allow access
+    isLoading: isInitializing, // Use the app's initialization state
+    isAuthenticated, // Use Zustand store state (not hardcoded!)
     logout,
     refreshUser,
   };
