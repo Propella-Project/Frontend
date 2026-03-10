@@ -204,15 +204,44 @@ export async function updateAIProgress(
   }
 
   try {
-    await aiEngineApi.updateProgress({
-      student_id: studentId,
-      subject,
-      topic,
-      mastery_score: Math.round(masteryScore), // 0-100
+    // Validate inputs before sending
+    if (!studentId || !subject || !topic || masteryScore === undefined) {
+      console.warn("[AI Progress] Invalid progress data:", { studentId, subject, topic, masteryScore });
+      return;
+    }
+
+    // Convert numeric ID to string if needed, or use username format
+    // The AI Engine expects student_id as a string identifier
+    const normalizedStudentId = String(studentId).trim();
+    const normalizedSubject = String(subject).trim();
+    const normalizedTopic = String(topic).trim();
+    const normalizedScore = Math.max(0, Math.min(100, Math.round(masteryScore))); // Clamp 0-100
+
+    console.log("[AI Progress] Updating progress:", {
+      student_id: normalizedStudentId,
+      subject: normalizedSubject,
+      topic: normalizedTopic,
+      mastery_score: normalizedScore,
     });
+
+    await aiEngineApi.updateProgress({
+      student_id: normalizedStudentId,
+      subject: normalizedSubject,
+      topic: normalizedTopic,
+      mastery_score: normalizedScore,
+    });
+    
+    console.log("[AI Progress] Update successful");
   } catch (error) {
-    console.error("Failed to update AI progress:", error);
-    // Don't throw - progress update failure shouldn't break the app
+    // Log detailed error but don't throw - progress update failure shouldn't break the app
+    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    if (axiosError.response?.status === 422) {
+      console.warn("[AI Progress] Validation error (422):", axiosError.response?.data);
+    } else if (axiosError.response?.status === 500) {
+      console.warn("[AI Progress] Server error (500) - student may not be registered in AI Engine");
+    } else {
+      console.error("[AI Progress] Failed to update:", error);
+    }
   }
 }
 

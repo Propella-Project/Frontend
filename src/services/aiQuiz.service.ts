@@ -53,7 +53,7 @@ export async function generateAIQuestions(
     console.log(`[AI Quiz] Requesting ${count} questions for subject: "${cleanSubject}", topic: "${topicName}"`);
     
     const response = await aiEngineApi.generateQuiz({
-      subjects: cleanSubject,
+      subjects: [cleanSubject],  // subjects must be an array
       topic: topicName,
       difficulty: difficulty,
       number_of_questions: count,
@@ -103,7 +103,7 @@ export async function generateMixedAIQuestions(
         console.log(`[AI Quiz] Requesting ${cappedQuestionsPerSubject} questions for: "${cleanSubject}" / "${topicName}"`);
         
         const response = await aiEngineApi.generateQuiz({
-          subjects: cleanSubject,
+          subjects: [cleanSubject],  // subjects must be an array
           topic: topicName,
           difficulty: difficulty,
           number_of_questions: cappedQuestionsPerSubject,
@@ -166,7 +166,7 @@ export async function generateMarathonAIQuestions(
         console.log(`[Marathon] Generating batch of ${batchSize} for ${subject.name}...`);
         
         const response = await aiEngineApi.generateQuiz({
-          subjects: subject.name,
+          subjects: [subject.name],  // subjects must be an array
           topic: subject.topics[0]?.name || "General",
           difficulty,
           number_of_questions: batchSize,

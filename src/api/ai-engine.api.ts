@@ -39,7 +39,7 @@ export interface QuizQuestion {
 }
 
 export interface QuizGenerateRequest {
-  subjects: string;  // AI Engine expects 'subjects' (plural), not 'subject'
+  subjects: string[];  // AI Engine expects 'subjects' as an array of strings
   topic: string;  // Required by AI Engine
   difficulty?: "easy" | "medium" | "hard";
   number_of_questions?: number;
@@ -194,10 +194,13 @@ export interface SyllabusResponse {
 }
 
 export interface TopicsResponse {
+  subject: string;
   topics: string[];
 }
 
 export interface SubtopicsResponse {
+  subject: string;
+  topic: string;
   subtopics: string[];
 }
 
@@ -339,16 +342,32 @@ export const aiEngineApi = {
         return { message: "Invalid request - skipping" };
       }
       
+      // Ensure all fields are properly formatted
+      const payload = {
+        student_id: String(request.student_id),
+        subject: String(request.subject),
+        topic: String(request.topic),
+        mastery_score: Number(request.mastery_score),
+      };
+      
+      console.log("[AI Engine] Sending progress update:", JSON.stringify(payload, null, 2));
+      
       const response = await aiEngineClient.post<{ message: string }>(
         "/progress/update",
-        request
+        payload
       );
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      console.warn("[AI Engine] Progress update failed:", axiosError.message);
-      // Return success anyway - don't block user flow for progress tracking
-      return { message: "Failed to update progress - continuing anyway" };
+      if (axiosError.response?.status === 422) {
+        console.warn("[AI Engine] Progress update validation error:", 
+          JSON.stringify(axiosError.response?.data, null, 2));
+      } else if (axiosError.response?.status === 500) {
+        console.warn("[AI Engine] Progress update server error - student may not exist in AI Engine");
+      } else {
+        console.warn("[AI Engine] Progress update failed:", axiosError.message);
+      }
+      throw error; // Re-throw so caller can handle
     }
   },
 
@@ -356,10 +375,22 @@ export const aiEngineApi = {
     studentId: string,
     subject: string
   ): Promise<ProgressResponse> => {
-    const response = await aiEngineClient.get<ProgressResponse>(
-      `/progress/${studentId}/${subject}`
-    );
-    return response.data;
+    try {
+      const encodedStudentId = encodeURIComponent(String(studentId));
+      const encodedSubject = encodeURIComponent(String(subject));
+      const url = `/progress/${encodedStudentId}/${encodedSubject}`;
+      
+      console.log("[AI Engine] Fetching progress:", url);
+      
+      const response = await aiEngineClient.get<ProgressResponse>(url);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 500) {
+        console.warn(`[AI Engine] Student "${studentId}" may not be registered in AI Engine`);
+      }
+      throw error;
+    }
   },
 
   // ========== Study Recommendations ==========
@@ -386,20 +417,59 @@ export const aiEngineApi = {
 
   // ========== Syllabus ==========
   getSyllabus: async (subject: string): Promise<string> => {
-    const response = await aiEngineClient.get<string>(`/syllabus/${encodeURIComponent(subject)}`);
-    return response.data;
+    try {
+      const response = await aiEngineClient.get<string>(`/syllabus/${encodeURIComponent(subject)}`);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
+        console.warn(`[AI Engine] Syllabus not found for "${subject}" - using fallback`);
+        return getFallbackSyllabus(subject);
+      }
+      throw error;
+    }
   },
 
   getTopics: async (subject: string): Promise<string[]> => {
-    const response = await aiEngineClient.get<string[]>(`/topics/${encodeURIComponent(subject)}`);
-    return response.data;
+    try {
+      const response = await aiEngineClient.get<TopicsResponse>(`/topics/${encodeURIComponent(subject)}`);
+      // Return topics array, or fallback if empty
+      if (response.data.topics && response.data.topics.length > 0) {
+        return response.data.topics;
+      }
+      console.warn(`[AI Engine] No topics found for "${subject}" - using fallback`);
+      return getFallbackTopics(subject);
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
+        console.warn(`[AI Engine] Topics not found for "${subject}" - using fallback`);
+      } else {
+        console.warn(`[AI Engine] Failed to get topics for "${subject}" - using fallback`);
+      }
+      return getFallbackTopics(subject);
+    }
   },
 
   getSubtopics: async (subject: string, topicName: string): Promise<string[]> => {
-    const response = await aiEngineClient.get<string[]>(
-      `/subtopics/${encodeURIComponent(subject)}/${encodeURIComponent(topicName)}`
-    );
-    return response.data;
+    try {
+      const response = await aiEngineClient.get<SubtopicsResponse>(
+        `/subtopics/${encodeURIComponent(subject)}/${encodeURIComponent(topicName)}`
+      );
+      // Return subtopics array, or fallback if empty
+      if (response.data.subtopics && response.data.subtopics.length > 0) {
+        return response.data.subtopics;
+      }
+      console.warn(`[AI Engine] No subtopics found for "${subject}/${topicName}" - using fallback`);
+      return getFallbackSubtopics(subject, topicName);
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
+        console.warn(`[AI Engine] Subtopics not found for "${subject}/${topicName}" - using fallback`);
+      } else {
+        console.warn(`[AI Engine] Failed to get subtopics for "${subject}/${topicName}" - using fallback`);
+      }
+      return getFallbackSubtopics(subject, topicName);
+    }
   },
 
   // ========== Health Check ==========
@@ -408,5 +478,196 @@ export const aiEngineApi = {
     return response.data;
   },
 };
+
+// ==========================================
+// FALLBACK SYLLABUS DATA
+// ==========================================
+
+// JAMB Syllabus fallback data when AI Engine returns 404 or empty
+function getFallbackSyllabus(subject: string): string {
+  const syllabi: Record<string, string> = {
+    english: `JAMB English Language Syllabus:
+1. Comprehension/Summary
+2. Lexis and Structure
+3. Oral Forms
+
+Topics include: reading comprehension, summary writing, vocabulary, grammar, phonetics, and essay writing.`,
+    mathematics: `JAMB Mathematics Syllabus:
+1. Number and Numeration
+2. Algebra
+3. Geometry/Trigonometry
+4. Calculus
+5. Statistics
+
+Topics include: sets, number bases, fractions, decimals, indices, logarithms, surds, sequences, quadratic equations, geometry, trigonometry, differentiation, integration, and statistics.`,
+    physics: `JAMB Physics Syllabus:
+1. Measurement and Units
+2.Scalars and Vectors
+3. Motion
+4. Equilibrium of Forces
+5. Work, Energy and Power
+6. Friction
+7. Simple Machines
+8. Elasticity
+9. Pressure
+10. Liquids at Rest
+11. Temperature and its Measurement
+12. Thermal Expansion
+13. Gas Laws
+14. Quantity of Heat
+15. Change of State
+16. Vapours
+17. Structure of Matter and Kinetic Theory
+18. Heat Transfer
+19. Waves
+20. Propagation of Sound Waves
+21. Characteristics of Sound Waves
+22. Light Energy
+23. Reflection of Light at Plane and Curved Surfaces
+24. Refraction of Light through Plane and Curved Surfaces
+25. Optical Instruments
+26. Electrostatics
+27. Capacitors
+28. Electric Cells
+29. Current Electricity
+30. Electrical Energy and Power
+31. Magnets and Magnetic Fields
+32. Force on a Current-Carrying Conductor
+33. Electromagnetic Induction
+34. Simple A.C. Circuits
+35. Conduction of Electricity through Gases
+36. Radioactivity
+37. Energy and Society`,
+    chemistry: `JAMB Chemistry Syllabus:
+1. Separation of Mixtures and Purification of Chemical Substances
+2. Chemical Combination
+3. Kinetic Theory of Matter and Gas Laws
+4. Atomic Structure and Bonding
+5. Air
+6. Water
+7. Solubility
+8. Environmental Pollution
+9. Acids, Bases and Salts
+10. Oxidation and Reduction
+11. Electrolysis
+12. Energy Changes
+13. Rates of Chemical Reaction
+14. Chemical Equilibria
+15. Non-metals and their Compounds
+16. Metals and their Compounds
+17. Organic Compounds
+18. Chemistry and Industry`,
+    biology: `JAMB Biology Syllabus:
+1. Variety of Organisms
+2. Structure and Functions of Living Things
+3. Life Processes in Living Things
+4. Evolution
+5. Ecosystem
+
+Topics include: classification of organisms, cell biology, tissues and systems, nutrition, transport, respiration, excretion, reproduction, growth, regulation, heredity and variation, adaptation and evolution, and ecology.`,
+  };
+  
+  const normalizedSubject = subject.toLowerCase().trim();
+  return syllabi[normalizedSubject] || `${subject} syllabus content not available.`;
+}
+
+function getFallbackTopics(subject: string): string[] {
+  const topics: Record<string, string[]> = {
+    english: [
+      "Comprehension",
+      "Summary Writing",
+      "Lexis and Structure",
+      "Grammar",
+      "Vocabulary",
+      "Essay Writing",
+      "Oral English",
+      "Phonetics",
+    ],
+    mathematics: [
+      "Number and Numeration",
+      "Algebra",
+      "Geometry",
+      "Trigonometry",
+      "Calculus",
+      "Statistics",
+      "Probability",
+      "Vectors",
+      "Matrices",
+    ],
+    physics: [
+      "Measurement",
+      "Motion",
+      "Forces",
+      "Work, Energy and Power",
+      "Heat and Temperature",
+      "Waves",
+      "Light",
+      "Electrostatics",
+      "Current Electricity",
+      "Magnetism",
+      "Modern Physics",
+    ],
+    chemistry: [
+      "Atomic Structure",
+      "Chemical Bonding",
+      "Stoichiometry",
+      "Acids, Bases and Salts",
+      "Redox Reactions",
+      "Electrolysis",
+      "Organic Chemistry",
+      "Periodic Table",
+      "Gas Laws",
+    ],
+    biology: [
+      "Cell Biology",
+      "Genetics",
+      "Ecology",
+      "Evolution",
+      "Human Physiology",
+      "Plant Physiology",
+      "Microbiology",
+      "Classification of Organisms",
+    ],
+  };
+  
+  const normalizedSubject = subject.toLowerCase().trim();
+  return topics[normalizedSubject] || ["General", "Introduction", "Basics"];
+}
+
+function getFallbackSubtopics(subject: string, topicName: string): string[] {
+  const subtopics: Record<string, Record<string, string[]>> = {
+    english: {
+      comprehension: ["Reading Techniques", "Inference", "Critical Analysis"],
+      grammar: ["Parts of Speech", "Tenses", "Agreement", "Punctuation"],
+      vocabulary: ["Synonyms", "Antonyms", "Word Formation", "Idioms"],
+    },
+    mathematics: {
+      algebra: ["Equations", "Inequalities", "Polynomials", "Functions"],
+      geometry: ["Angles", "Triangles", "Circles", "Coordinate Geometry"],
+      calculus: ["Differentiation", "Integration", "Limits", "Applications"],
+    },
+    physics: {
+      motion: ["Speed", "Velocity", "Acceleration", "Graphs of Motion"],
+      waves: ["Wave Properties", "Sound Waves", "Light Waves", "Wave Interference"],
+      "current electricity": ["Ohm's Law", "Circuits", "Resistance", "Power"],
+    },
+    chemistry: {
+      "atomic structure": ["Protons", "Neutrons", "Electrons", "Isotopes"],
+      "chemical bonding": ["Ionic", "Covalent", "Metallic", "Intermolecular"],
+      "organic chemistry": ["Hydrocarbons", "Functional Groups", "Reactions"],
+    },
+    biology: {
+      "cell biology": ["Cell Structure", "Cell Division", "Cell Transport"],
+      genetics: ["DNA", "RNA", "Mendelian Genetics", "Mutations"],
+      ecology: ["Ecosystems", "Food Chains", "Biogeochemical Cycles"],
+    },
+  };
+  
+  const normalizedSubject = subject.toLowerCase().trim();
+  const normalizedTopic = topicName.toLowerCase().trim();
+  
+  return subtopics[normalizedSubject]?.[normalizedTopic] || 
+         ["Introduction", "Basic Concepts", "Practice Problems"];
+}
 
 export default aiEngineApi;

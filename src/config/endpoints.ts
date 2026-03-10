@@ -56,16 +56,16 @@ export const ENDPOINTS = {
   // Subscriptions
   subscriptions: {
     // GET - Get available subscription plans (requires auth)
-    plans: `/accounts/plans/`,
+    plans: `/api/accounts/plans/`,
     // POST - Subscribe to a plan (requires auth, plan_id in body)
-    subscribe: `/accounts/subscribe/`,
+    subscribe: `/api/accounts/subscribe/`,
     // POST - Verify subscription after Flutterwave payment
-    verify: `/accounts/verify-subscription/`,
+    verify: `/api/accounts/verify-subscription/`,
   },
 
   // Onboarding (legacy - may need updates based on backend)
   onboarding: {
-    examProfile: `/accounts/create-exam-profile/`,
+    examProfile: `/api/accounts/create-exam-profile/`,
     userSubjects: `/user-subjects/`,
   },
 

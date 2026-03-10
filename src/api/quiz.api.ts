@@ -17,9 +17,9 @@ export const quizApi = {
   getDiagnosticQuiz: async (subject: string, topic?: string): Promise<DiagnosticQuestion[]> => {
     try {
       // Try AI Engine first for dynamic quiz generation
-      // AI Engine requires topic field and uses 'subjects' (plural)
+      // AI Engine requires topic field and uses 'subjects' (plural) as array
       const requestBody = {
-        subjects: subject,
+        subjects: [subject],  // subjects must be an array
         topic: topic && topic.trim() !== "" ? topic : "General",
         difficulty: DEFAULT_QUIZ_CONFIG.difficulty,
         number_of_questions: DEFAULT_QUIZ_CONFIG.number_of_questions,
@@ -81,7 +81,15 @@ export const quizApi = {
           subject,
           topic: "diagnostic_quiz",
           mastery_score: Math.round((correct / total) * 100),
-        }).catch(() => {/* Silent fail */});
+        }).catch((err) => {
+          // Log but don't throw - progress update failure shouldn't break the app
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          if (status === 422) {
+            console.warn("[Quiz] AI Progress update validation error");
+          } else if (status === 500) {
+            console.warn("[Quiz] AI Progress update server error - student not registered");
+          }
+        });
       } catch {
         // Silent fail for progress update
       }
@@ -96,7 +104,7 @@ export const quizApi = {
     questionCount: number = 5
   ): Promise<DiagnosticQuestion[]> => {
     const aiResponse = await aiEngineApi.generateQuiz({
-      subjects: subject,
+      subjects: [subject],  // subjects must be an array
       topic: topic && topic.trim() !== "" ? topic : "General",
       difficulty,
       number_of_questions: questionCount,
