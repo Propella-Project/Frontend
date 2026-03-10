@@ -1,25 +1,24 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-// Route Guards
+// Route Guards (small, keep in main chunk)
 import {
   AuthGuard,
   RequireOnboarding,
   PreventCompletedOnboarding,
 } from "@/routes/guards";
 
-// Layouts
-import {
-  AuthLayout,
-  OnboardingLayout,
-  MainLayout,
-  PaymentCallbackLayout,
-  VerifyLayout,
-} from "@/routes/layouts";
+// Layouts – lazy loaded for smaller initial bundle
+const AuthLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.AuthLayout })));
+const OnboardingLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.OnboardingLayout })));
+const MainLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.MainLayout })));
+const PaymentCallbackLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.PaymentCallbackLayout })));
+const VerifyLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.VerifyLayout })));
 
-// Page Components
-import { Login } from "@/sections/Login";
-import { ForgotPasswordPage } from "@/sections/ForgottenPassword";
-import { ResetPasswordPage } from "@/sections/ResetPassword";
+// Page Components – lazy loaded
+const Login = lazy(() => import("@/sections/Login").then((m) => ({ default: m.Login })));
+const ForgotPasswordPage = lazy(() => import("@/sections/ForgottenPassword").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/sections/ResetPassword").then((m) => ({ default: m.ResetPasswordPage })));
 
 /**
  * App Router Configuration
@@ -34,7 +33,14 @@ import { ResetPasswordPage } from "@/sections/ResetPassword";
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center">
+            <div className="w-10 h-10 border-2 border-[#CCFF00] border-t-transparent rounded-full animate-spin" />
+          </div>
+        }
+      >
+        <Routes>
         {/* ============================================================
             AUTH ROUTES (Public - but redirects if already authenticated)
             ============================================================ */}
@@ -86,6 +92,7 @@ function App() {
             ============================================================ */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

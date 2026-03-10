@@ -127,7 +127,8 @@ export const subscriptionApi = {
       );
       console.log("[Subscription] Raw response:", response.data);
       
-      // Handle nested response structure: { status, message, data: { link, ... } }
+      // Flutterwave success: { status: "success", message: "Hosted Link", data: { link: "https://checkout.flutterwave.com/..." } }
+      // Redirect user to data.link only when status is success and link is present
       const responseWrapper = response.data;
       if (!responseWrapper) {
         throw new Error("Empty response from server");
@@ -208,13 +209,20 @@ export const subscriptionApi = {
     }
   },
 
-  // Verify subscription after Flutterwave payment (requires transaction_id in body)
+  // Verify subscription after Flutterwave payment.
+  // Backend verifies with Flutterwave (GET /v3/transactions/{id}/verify), checks status === "successful", then creates Subscription.
+  // Requires transaction_id; plan_id is required by backend to create the subscription record.
   verifySubscription: async (
     transactionId: string,
+    planId?: string,
   ): Promise<VerifySubscriptionResponse> => {
+    const body: { transaction_id: string; plan_id?: string } = {
+      transaction_id: transactionId,
+    };
+    if (planId) body.plan_id = planId;
     const response = await apiClient.post(
       ENDPOINTS.subscriptions.verify,
-      { transaction_id: transactionId },
+      body,
     );
     return response.data;
   },

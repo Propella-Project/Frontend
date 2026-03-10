@@ -15,7 +15,7 @@ interface UsePaymentReturn {
   fetchPlans: () => Promise<void>;
   selectPlan: (plan: SubscriptionPlan) => void;
   initiatePayment: (plan: SubscriptionPlan) => Promise<SubscribeResponse | null>;
-  verifySubscription: (transactionRef: string) => Promise<boolean>;
+  verifySubscription: (transactionRef: string, planId?: string) => Promise<boolean>;
 }
 
 /**
@@ -157,21 +157,21 @@ export function usePayment(): UsePaymentReturn {
     [selectedPlan]
   );
 
-  // Verify subscription after payment
+  // Verify subscription after payment. Pass plan_id so backend can create Subscription (Flutterwave verify checks status === successful).
   const verifySubscription = useCallback(
-    async (transactionRef: string): Promise<boolean> => {
+    async (transactionRef: string, planId?: string): Promise<boolean> => {
       setVerifying(true);
       setError(null);
 
+      const effectivePlanId = planId ?? localStorage.getItem("pending_plan_id") ?? undefined;
+
       try {
-        const response = await subscriptionApi.verifySubscription(transactionRef);
+        const response = await subscriptionApi.verifySubscription(transactionRef, effectivePlanId);
 
         if (response.status === "success" && response.subscription) {
-          // Update payment status
           setPaymentStatus("paid");
           setUser({ payment_status: "paid" });
 
-          // Fetch and unlock day one roadmap
           try {
             const todayRoadmap = await roadmapApi.getTodayRoadmap();
             setTodayRoadmap(todayRoadmap);
@@ -179,7 +179,6 @@ export function usePayment(): UsePaymentReturn {
             console.error("Failed to fetch roadmap:", roadmapErr);
           }
 
-          // Clear pending transaction
           localStorage.removeItem("pending_transaction_id");
           localStorage.removeItem("pending_plan_id");
 
@@ -286,28 +285,21 @@ export function usePaymentStatus() {
       return;
     }
     
-    // Check pending transaction
+    // Check pending transaction (include plan_id for backend verify_subscription)
+    const pendingPlanId = localStorage.getItem("pending_plan_id");
     if (pendingId) {
-      // Verify the pending transaction
-      subscriptionApi.verifySubscription(pendingId).then((response) => {
+      subscriptionApi.verifySubscription(pendingId, pendingPlanId ?? undefined).then((response) => {
         if (response.status === "success" && response.subscription) {
           console.log("[PaymentStatus] Pending transaction verified");
-          // Update payment status
           setPaymentStatus("paid");
           setUser({ payment_status: "paid" });
-          
-          // Clear pending transaction
           localStorage.removeItem("pending_transaction_id");
           localStorage.removeItem("pending_plan_id");
-          
-          // Fetch and unlock roadmap
           roadmapApi.getTodayRoadmap().then((roadmap) => {
             setTodayRoadmap(roadmap);
           }).catch((err) => {
             console.error("[PaymentStatus] Failed to fetch roadmap:", err);
           });
-          
-          // Refresh status
           checkSubscriptionStatus();
         }
       }).catch((err) => {
