@@ -12,6 +12,7 @@ import { Profile } from "@/sections/Profile";
 import { OnboardingFlow } from "@/sections/OnboardingFlow";
 import { BottomNav } from "@/components/BottomNav";
 import { PaymentCallback } from "@/features/payment/PaymentCallback";
+import { VerifyPage } from "@/features/payment/VerifyPage";
 
 /**
  * Auth Layout - Minimal layout for auth pages (login, forgot-password, reset-password)
@@ -74,22 +75,32 @@ export function MainLayout() {
 }
 
 /**
- * Payment Callback Layout - Handles payment redirects
+ * Payment Callback Layout - Handles payment redirects (legacy routes)
  */
 export function PaymentCallbackLayout() {
   const navigate = useNavigate();
   const { setCurrentPage } = useStore();
 
   const handleComplete = () => {
-    // Set the current page to dashboard for when we arrive at the main app
     setCurrentPage("dashboard");
-    // Navigate to the main app/dashboard route
     navigate("/dashboard", { replace: true });
   };
 
   return (
     <div className="min-h-screen bg-[#0F0F11] text-[#F3F4F6]">
       <PaymentCallback onComplete={handleComplete} />
+      <Toaster />
+    </div>
+  );
+}
+
+/**
+ * Verify Layout - Payment verification page at /verify (Flutterwave redirect_url)
+ */
+export function VerifyLayout() {
+  return (
+    <div className="min-h-screen bg-[#0A0A0C] text-[#F3F4F6]">
+      <VerifyPage />
       <Toaster />
     </div>
   );

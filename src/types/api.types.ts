@@ -56,12 +56,13 @@ export interface UserSubjectsPayload {
   subjects: string[];
 }
 
-// Diagnostic Quiz Types
+// Diagnostic Quiz Types (matches backend schema: options "A) ...", correct_answer "A"|"B"|"C"|"D")
 export interface DiagnosticQuestion {
   subject: string;
   question: string;
   options: string[];
   correct_answer: string;
+  explanation?: string;
   allocated_time: number;
 }
 

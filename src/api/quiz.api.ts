@@ -38,10 +38,12 @@ export const quizApi = {
     } catch (aiError) {
       console.warn("[Quiz] AI Engine failed, using fallback:", aiError);
       
-      // Fallback: Try backend API
+      // Fallback: Try backend API (response may be { questions: [...] } or array)
       try {
         const response = await apiClient.get(ENDPOINTS.diagnostic.getQuiz(subject));
-        return response.data;
+        const data = response.data;
+        const questions = Array.isArray(data) ? data : data?.questions ?? [];
+        return questions;
       } catch (backendError) {
         console.warn("[Quiz] Backend failed, using local fallback");
         // Return AI-generated style fallback questions

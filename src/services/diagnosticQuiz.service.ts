@@ -4,6 +4,26 @@ import { quizApi } from "@/api/quiz.api";
 import type { Subject, Question } from "@/types";
 import { FEATURES } from "@/config/env";
 
+/**
+ * Map API correct_answer (e.g. "A", "B", "C", "D") to 0-based option index.
+ * Handles: single letter, option text like "C) Leaf", or options like ["A) Root", "B) Stem", ...].
+ */
+function getCorrectAnswerIndex(options: string[] | undefined, correctAnswer: string | undefined): number {
+  if (!options?.length || correctAnswer == null || correctAnswer === "") return 0;
+  const normalized = String(correctAnswer).trim().toUpperCase();
+  const letter = normalized.charAt(0);
+  // A=0, B=1, C=2, D=3
+  if (letter >= "A" && letter <= "Z") {
+    const index = letter.charCodeAt(0) - 65;
+    if (index >= 0 && index < options.length) return index;
+  }
+  // Fallback: find option that starts with this letter (e.g. "C)" or "C) Leaf")
+  const matchIndex = options.findIndex(
+    (opt) => opt.trim().toUpperCase().startsWith(letter + ")") || opt.trim().toUpperCase().startsWith(letter + " ")
+  );
+  return matchIndex >= 0 ? matchIndex : 0;
+}
+
 export interface DiagnosticQuizResult {
   questions: Question[];
   source: "ai" | "template" | "api";
@@ -62,15 +82,9 @@ export async function generateDiagnosticQuiz(
         }
         
         // Convert API response to Question format
+        // API schema: options like ["A) Root", "B) Stem", "C) Leaf", "D) Flower"], correct_answer like "C"
         const convertedQuestions = response.slice(0, questionsPerSubject).map((q, index) => {
-          // The API returns DiagnosticQuestion format with correct_answer as string
-          // Find correct answer index from options array
-          let correctIndex = 0;
-          if (q.options && q.correct_answer) {
-            correctIndex = q.options.indexOf(q.correct_answer);
-            if (correctIndex === -1) correctIndex = 0;
-          }
-          
+          const correctIndex = getCorrectAnswerIndex(q.options, q.correct_answer);
           return {
             id: `api_${subject.id}_${index}_${Date.now()}`,
             subjectId: subject.id,
@@ -79,7 +93,7 @@ export async function generateDiagnosticQuiz(
             question: q.question,
             options: q.options,
             correctAnswer: correctIndex,
-            explanation: `The correct answer is ${q.correct_answer}`,
+            explanation: q.explanation ?? `The correct answer is ${q.correct_answer}`,
             difficulty: "medium" as const,
             topic: q.subject || "General",
           };

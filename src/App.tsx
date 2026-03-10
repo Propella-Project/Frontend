@@ -13,6 +13,7 @@ import {
   OnboardingLayout,
   MainLayout,
   PaymentCallbackLayout,
+  VerifyLayout,
 } from "@/routes/layouts";
 
 // Page Components
@@ -70,7 +71,12 @@ function App() {
         />
 
         {/* ============================================================
-            PAYMENT CALLBACK (Public - handles redirect from payment provider)
+            PAYMENT VERIFY (Public - Flutterwave redirect_url target)
+            ============================================================ */}
+        <Route path="/verify" element={<VerifyLayout />} />
+
+        {/* ============================================================
+            PAYMENT CALLBACK (Public - legacy callback routes)
             ============================================================ */}
         <Route path="/payment/callback" element={<PaymentCallbackLayout />} />
         <Route path="/payment-success" element={<PaymentCallbackLayout />} />
