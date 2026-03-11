@@ -42,11 +42,10 @@ export function Login() {
       // Fetch user data to get user_id and username
       const userResult = await getUser();
       if (userResult.success && userResult.data) {
-        // Store user data in state and localStorage
         const userData = {
           user_id: String(userResult.data.id),
           username: userResult.data.username,
-          // Nickname will be set during onboarding via exam profile
+          email: (userResult.data as { email?: string }).email ?? email,
         };
         setUser(userData);
         localStorage.setItem("propella_user_id", String(userResult.data.id));

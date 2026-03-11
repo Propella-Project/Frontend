@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePayment } from "@/hooks/usePayment";
 import { useUserStore } from "@/state/user.store";
 import type { SubscriptionPlan } from "@/api/subscription.api";
@@ -14,6 +14,10 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle, Lock, Loader2, Check, Sparkles, Zap, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useFlutterwave, closePaymentModal, FlutterWaveTypes } from "flutterwave-react-v3";
+
+type FlutterwaveConfig = FlutterWaveTypes.FlutterwaveConfig;
+import { getFlutterwavePublicKey, generateTransactionRef, isFlutterwaveConfigured } from "@/services/flutterwave.service";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -21,58 +25,118 @@ interface PaymentModalProps {
   onSuccess?: () => void;
 }
 
-export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
-  const { 
-    loading, 
-    plans, 
-    selectedPlan, 
-    selectPlan, 
-    initiatePayment 
-  } = usePayment();
-  const { isAuthenticated } = useUserStore();
-  
-  const [isProcessing, setIsProcessing] = useState(false);
+const defaultFwConfig: FlutterwaveConfig = {
+  public_key: "",
+  tx_ref: "init",
+  amount: 0,
+  currency: "NGN",
+  payment_options: "card,ussd,banktransfer,account",
+  customer: { email: "", name: "", phone_number: "" },
+  customizations: {
+    title: "Propella",
+    description: "Subscription payment",
+    logo: typeof window !== "undefined" ? `${window.location.origin}/favicon.ico` : "",
+  },
+  redirect_url: typeof window !== "undefined" ? `${window.location.origin}/verify` : "/verify",
+};
 
-  const handleSelectPlan = async (plan: SubscriptionPlan) => {
-    // Check if user is logged in
-    if (!isAuthenticated) {
-      toast.error("Please log in to subscribe");
-      // Store the current intent so we can return after login
-      localStorage.setItem("propella_pending_subscription_plan", plan.id);
-      // Redirect to login
-      window.location.href = "/login";
-      return;
-    }
-    
-    selectPlan(plan);
-    setIsProcessing(true);
-    
-    // Initiate payment with plan - backend handles Flutterwave redirect with email/username
-    const response = await initiatePayment(plan);
-    
-    if (response?.payment_link) {
-      // Redirect to Flutterwave payment page
-      window.location.href = response.payment_link;
-    } else {
-      setIsProcessing(false);
-      toast.error("Failed to initiate payment. Please try again.");
-    }
-  };
+export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
+  const { loading, plans, selectPlan } = usePayment();
+  const isAuthenticated = useUserStore((s) => s.isAuthenticated);
+  const userEmail = useUserStore((s) => s.email);
+  const userNickname = useUserStore((s) => s.nickname);
+  const userUsername = useUserStore((s) => s.username);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [payConfig, setPayConfig] = useState<FlutterwaveConfig>(() => ({
+    ...defaultFwConfig,
+    public_key: isFlutterwaveConfigured() ? getFlutterwavePublicKey() : "",
+  }));
+  const [triggerPay, setTriggerPay] = useState(false);
+
+  const handleFlutterPayment = useFlutterwave(payConfig);
+
+  useEffect(() => {
+    if (!triggerPay || payConfig.amount <= 0) return;
+    handleFlutterPayment({
+      callback: (response) => {
+        closePaymentModal();
+        if (response.status === "successful") {
+          localStorage.setItem("pending_transaction_id", String(response.transaction_id));
+          toast.success("Payment successful! Redirecting...");
+        }
+        setTriggerPay(false);
+        setIsProcessing(false);
+      },
+      onClose: () => {
+        setTriggerPay(false);
+        setIsProcessing(false);
+      },
+    });
+    setTriggerPay(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when we trigger with a valid amount
+  }, [triggerPay, payConfig.amount]);
+
+  const handleSelectPlan = useCallback(
+    (plan: SubscriptionPlan) => {
+      if (!isAuthenticated) {
+        toast.error("Please log in to subscribe");
+        localStorage.setItem("propella_pending_subscription_plan", plan.id);
+        window.location.href = "/login";
+        return;
+      }
+
+      const email = userEmail ?? "";
+      const name = userNickname || userUsername || "Customer";
+      if (!email) {
+        toast.error("Please complete your profile with an email to subscribe");
+        return;
+      }
+      if (!isFlutterwaveConfigured()) {
+        toast.error("Payment is not configured. Set VITE_FLUTTERWAVE_PUBLIC_KEY in .env");
+        return;
+      }
+
+      selectPlan(plan);
+      setIsProcessing(true);
+
+      const txRef = generateTransactionRef();
+      localStorage.setItem("pending_transaction_id", txRef);
+      localStorage.setItem("pending_plan_id", plan.id);
+
+      setPayConfig({
+        ...defaultFwConfig,
+        public_key: getFlutterwavePublicKey(),
+        tx_ref: txRef,
+        amount: plan.amount,
+        currency: (plan.currency as "NGN") ?? "NGN",
+        customer: {
+          email,
+          name,
+          phone_number: "",
+        },
+        customizations: {
+          title: "Propella",
+          description: "Subscription payment",
+          logo: `${window.location.origin}/favicon.ico`,
+        },
+        redirect_url: `${window.location.origin}/verify`,
+        meta: { plan_id: plan.id },
+      });
+      setTriggerPay(true);
+    },
+    [isAuthenticated, userEmail, userNickname, userUsername, selectPlan]
+  );
 
   const handleClose = () => {
-    if (!loading && !isProcessing) {
-      onClose();
-    }
+    if (!loading && !isProcessing) onClose();
   };
 
-  // Ensure plans is always an array
   const safePlans = Array.isArray(plans) ? plans : [];
-  
-  // Get icon based on plan
+
   const getPlanIcon = (planName: string) => {
     const name = planName.toLowerCase();
-    if (name.includes('year') || name.includes('annual')) return <Crown className="w-6 h-6 text-[#CCFF00]" />;
-    if (name.includes('quarter')) return <Sparkles className="w-6 h-6 text-[#F59E0B]" />;
+    if (name.includes("year") || name.includes("annual")) return <Crown className="w-6 h-6 text-[#CCFF00]" />;
+    if (name.includes("quarter")) return <Sparkles className="w-6 h-6 text-[#F59E0B]" />;
     return <Zap className="w-6 h-6 text-[#3B82F6]" />;
   };
 
@@ -103,27 +167,19 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card 
-                  className={`relative overflow-hidden cursor-pointer transition-all hover:border-[#CCFF00] ${
-                    selectedPlan?.id === plan.id
-                      ? "border-[#CCFF00] ring-1 ring-[#CCFF00]"
-                      : "border-[#2A2A2E]"
-                  } bg-[#0F0F11]`}
-                  onClick={() => handleSelectPlan(plan)}
+                <Card
+                  className="relative overflow-hidden border-[#2A2A2E] bg-[#0F0F11] hover:border-[#CCFF00] transition-all"
                 >
-                  {/* Popular badge for non-monthly plans */}
                   {plan.duration_days > 30 && (
                     <div className="absolute top-0 right-0 bg-[#CCFF00] text-[#0F0F11] text-xs font-bold px-3 py-1 rounded-bl-lg">
                       BEST VALUE
                     </div>
                   )}
-                  
                   <div className="p-5">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-[#2A2A2E] rounded-xl flex items-center justify-center flex-shrink-0">
                         {getPlanIcon(plan.name)}
                       </div>
-                      
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <h3 className="font-bold text-lg">{plan.name}</h3>
@@ -136,10 +192,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                             </span>
                           </div>
                         </div>
-                        
                         <p className="text-sm text-[#9CA3AF] mb-3">{plan.description}</p>
-                        
-                        {/* Features */}
                         <ul className="space-y-1.5">
                           {(plan.features || []).slice(0, 4).map((feature, i) => (
                             <li key={i} className="flex items-center gap-2 text-xs text-[#9CA3AF]">
@@ -148,17 +201,15 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                             </li>
                           ))}
                         </ul>
-                        
-                        {/* Subscribe button */}
                         <Button
                           onClick={() => handleSelectPlan(plan)}
                           disabled={isProcessing}
                           className="w-full mt-4 bg-[#6D28D9] hover:bg-[#5B21B6] text-white"
                         >
-                          {isProcessing && selectedPlan?.id === plan.id ? (
+                          {isProcessing ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Redirecting...
+                              Opening...
                             </>
                           ) : (
                             <>
@@ -177,7 +228,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
         </div>
 
         <p className="text-xs text-[#9CA3AF] text-center mt-4">
-          You&apos;ll be redirected to Flutterwave&apos;s secure payment page to complete your subscription
+          Secure payment by Flutterwave. You&apos;ll be redirected after payment to confirm your subscription.
         </p>
       </DialogContent>
     </Dialog>

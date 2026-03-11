@@ -5,8 +5,9 @@ import type {
   PaymentVerifyResponse,
 } from "@/types/api.types";
 
-// Flutterwave public key - should come from env in production
-const FLUTTERWAVE_PUBLIC_KEY = import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK_TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxx-X";
+// Flutterwave keys are not in client env - use getFlutterwavePublicKey() from flutterwave.service
+// (fetches from backend at runtime). This fallback is only for legacy callers.
+const FLUTTERWAVE_PUBLIC_KEY = "";
 
 export interface FlutterwaveConfig {
   public_key: string;
