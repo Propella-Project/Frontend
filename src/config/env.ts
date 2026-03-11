@@ -1,12 +1,11 @@
 // Environment Configuration
+// VITE_API_BASE_URL = backend base URL (e.g. https://propella-api.vercel.app or .../api)
+const rawApiBase = (import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api").replace(/\/$/, "");
+const API_BASE_URL = rawApiBase.endsWith("/api") ? rawApiBase : `${rawApiBase}/api`;
+
 export const ENV = {
-  // Main Backend API
-  // Note: The API endpoints are under /api path
-  // UPDATE THIS: Your backend API URL
-  // Examples:
-  // - Local development: "http://localhost:8000/api"
-  // - Deployed backend: "https://your-api-domain.com/api"
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api",
+  // Main Backend API (no trailing slash; used as base for /accounts/..., etc.)
+  API_BASE_URL,
   API_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT || "30000"),
   
   // AI Engine API
