@@ -8,9 +8,6 @@
 
 import { ENV } from "@/config/env";
 
-// API base URL (without /api suffix)
-const API_BASE_URL = ENV.API_BASE_URL.replace(/\/api$/, '');
-
 /**
  * Base fetch function with credentials included
  */
@@ -18,7 +15,7 @@ async function fetchWithCredentials(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const url = endpoint.startsWith("http") ? endpoint : `${ENV.API_BASE_URL}${endpoint}`;
   
   const response = await fetch(url, {
     ...options,
