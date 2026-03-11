@@ -6,7 +6,7 @@ export const ENV = {
   // Examples:
   // - Local development: "http://localhost:8000/api"
   // - Deployed backend: "https://your-api-domain.com/api"
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api",
   API_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT || "30000"),
   
   // AI Engine API
@@ -16,7 +16,10 @@ export const ENV = {
   
   // URLs
   LANDING_PAGE_URL: import.meta.env.VITE_LANDING_PAGE_URL || "https://propella.ng",
-  
+
+  // Flutterwave public key (for flutterwave-react-v3; safe to expose - public key only)
+  FLUTTERWAVE_PUBLIC_KEY: import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || "",
+
   IS_PRODUCTION: import.meta.env.PROD,
   IS_DEVELOPMENT: import.meta.env.DEV,
 } as const;

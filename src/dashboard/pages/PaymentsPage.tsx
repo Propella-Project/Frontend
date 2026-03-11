@@ -12,6 +12,7 @@ import { DashboardLayout } from "../components/DashboardLayout";
 import { subscriptionApi } from "@/api/subscription.api";
 import type { SubscriptionPlan, UserSubscriptionStatus } from "@/api/subscription.api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserStore } from "@/state/user.store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,9 @@ import { toast } from "sonner";
 
 export function PaymentsPage() {
   const { user } = useAuth();
+  const userEmail = useUserStore((s) => s.email);
+  const userNickname = useUserStore((s) => s.nickname);
+  const userUsername = useUserStore((s) => s.username);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [subscription, setSubscription] = useState<UserSubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,25 +49,35 @@ export function PaymentsPage() {
     fetchData();
   }, []);
 
-  // Initiate payment
+  // Initiate payment (client-side Flutterwave via usePayment is preferred; this supports dashboard payments page)
   const initiatePayment = async (plan: SubscriptionPlan) => {
     if (!user?.id) {
       toast.error("User not found");
       return;
     }
 
+    const email = userEmail ?? "";
+    const name = userNickname || userUsername || "Customer";
+    if (!email) {
+      toast.error("Please complete your profile with an email to subscribe");
+      return;
+    }
+
     setProcessingPlan(plan.id);
 
     try {
-      // Use the backend payment initialization endpoint
       const response = await subscriptionApi.subscribe({
         plan_id: plan.id,
         payment_method: "flutterwave",
+        amount: plan.amount,
+        currency: plan.currency ?? "NGN",
+        customer: { email, name },
       });
 
       if (response.payment_link) {
-        // Redirect to payment gateway
         window.location.href = response.payment_link;
+      } else if (response.transaction_ref) {
+        toast.info("Payment modal opened in another tab or window");
       } else {
         toast.error("Payment initialization failed");
       }

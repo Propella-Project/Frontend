@@ -64,47 +64,40 @@ export async function generateDiagnosticQuiz(
     }
   }
 
-  // Try Backend API
+  // Try Backend API – single POST: { subjects: user's selected subject names, topic: "any", difficulty, number_of_questions }
   try {
-    console.log("[DiagnosticQuiz] Attempting Backend API...");
-    const apiQuestions: Question[] = [];
-    
-    // Fetch questions for each subject from API
-    for (const subject of subjects) {
-      try {
-        const response = await quizApi.getDiagnosticQuiz(subject.name);
-        console.log(`[DiagnosticQuiz] API response for ${subject.name}:`, response);
-        
-        // Validate response is an array
-        if (!Array.isArray(response)) {
-          console.warn(`[DiagnosticQuiz] API returned non-array for ${subject.name}:`, response);
-          continue;
-        }
-        
-        // Convert API response to Question format
-        // API schema: options like ["A) Root", "B) Stem", "C) Leaf", "D) Flower"], correct_answer like "C"
-        const convertedQuestions = response.slice(0, questionsPerSubject).map((q, index) => {
-          const correctIndex = getCorrectAnswerIndex(q.options, q.correct_answer);
-          return {
-            id: `api_${subject.id}_${index}_${Date.now()}`,
-            subjectId: subject.id,
-            topicId: subject.topics[0]?.id || "general",
-            year: new Date().getFullYear(),
-            question: q.question,
-            options: q.options,
-            correctAnswer: correctIndex,
-            explanation: q.explanation ?? `The correct answer is ${q.correct_answer}`,
-            difficulty: "medium" as const,
-            topic: q.subject || "General",
-          };
-        });
-        apiQuestions.push(...convertedQuestions);
-      } catch (subjectError) {
-        console.warn(`[DiagnosticQuiz] API failed for ${subject.name}:`, subjectError);
-      }
-    }
+    console.log("[DiagnosticQuiz] Attempting Backend API (subjects array)...");
+    const subjectNames = subjects.map((s) => s.name.toLowerCase().trim());
+    const totalQuestions = questionsPerSubject * subjects.length;
+    const response = await quizApi.generateDiagnosticQuiz({
+      subjects: subjectNames,
+      topic: "any",
+      difficulty: "medium",
+      number_of_questions: totalQuestions,
+    });
+    console.log(`[DiagnosticQuiz] API response: ${response?.length ?? 0} questions`);
 
-    if (apiQuestions.length > 0) {
+    if (response?.length > 0) {
+      const apiQuestions: Question[] = response.map((q, index) => {
+        const subjectObj = subjects.find(
+          (s) => s.name.toLowerCase() === (q.subject ?? "").toLowerCase()
+        );
+        const subjectId = subjectObj?.id ?? q.subject ?? "general";
+        const topicId = subjectObj?.topics?.[0]?.id ?? "general";
+        const correctIndex = getCorrectAnswerIndex(q.options, q.correct_answer);
+        return {
+          id: `api_${subjectId}_${index}_${Date.now()}`,
+          subjectId,
+          topicId,
+          year: new Date().getFullYear(),
+          question: q.question,
+          options: q.options,
+          correctAnswer: correctIndex,
+          explanation: q.explanation ?? `The correct answer is ${q.correct_answer}`,
+          difficulty: "medium" as const,
+          topic: q.subject ?? "General",
+        };
+      });
       console.log(`[DiagnosticQuiz] Backend API returned ${apiQuestions.length} questions`);
       return {
         questions: apiQuestions,

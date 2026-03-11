@@ -38,6 +38,7 @@ const initialState: Omit<UserState, "setUser" | "setAuthenticated" | "setLoading
   user_id: "",
   username: "",
   nickname: "",
+  email: undefined,
   rank: "Rookie",
   level: 1,
   points: 0,
