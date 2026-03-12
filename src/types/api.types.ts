@@ -222,8 +222,11 @@ export interface Notification {
   action_url?: string;
 }
 
-// Profile Update Types
+// Profile Update Types (How_it_works.md §8: PUT /accounts/edit-user/)
 export interface ProfileUpdatePayload {
+  email?: string;
+  first_name?: string;
+  last_name?: string;
   nickname?: string;
   ai_tutor_selected?: string;
   ai_voice_enabled?: boolean;

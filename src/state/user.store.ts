@@ -192,6 +192,7 @@ export const useUserStore = create<UserState>()(
         user_id: state.user_id,
         username: state.username,
         nickname: state.nickname,
+        email: state.email,
         rank: state.rank,
         level: state.level,
         points: state.points,

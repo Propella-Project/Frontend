@@ -3,6 +3,23 @@ import { ENDPOINTS } from "@/config/endpoints";
 import { getToken } from "./client";
 import { generateTransactionRef } from "@/services/flutterwave.service";
 
+/** Replace placeholder or empty plan description with a sensible default by plan name */
+function getPlanDescription(planName: string, apiDescription: string | undefined): string {
+  const raw = (apiDescription || "").trim();
+  if (raw && !/lorem\s+ipsum/i.test(raw)) return raw;
+  const name = (planName || "").toLowerCase();
+  if (name.includes("smart") || name.includes("monthly")) {
+    return "Full access to your personalized study roadmap, AI tutor, and analytics for 30 days.";
+  }
+  if (name.includes("quarter") || name.includes("3 month")) {
+    return "Three months of full access with the best per-day value.";
+  }
+  if (name.includes("year") || name.includes("annual")) {
+    return "Full access for 12 months with maximum savings.";
+  }
+  return "Full access to your personalized roadmap, AI tutor, and performance analytics.";
+}
+
 // Raw plan from backend API
 export interface RawSubscriptionPlan {
   id: number;
@@ -97,7 +114,7 @@ export const subscriptionApi = {
     return response.data.map((plan) => ({
       id: String(plan.id),
       name: plan.name,
-      description: plan.description,
+      description: getPlanDescription(plan.name, plan.description),
       amount: parseFloat(plan.price),  // Convert price string to number
       currency: "NGN",  // Default currency
       duration_days: plan.duration_days,

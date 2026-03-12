@@ -43,36 +43,51 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { isAuthenticated, user_id, nickname, username, clearUser } = useUserStore();
+  const { isAuthenticated, user_id, nickname, username, email: storeEmail, setUser: setStoreUser, clearUser } = useUserStore();
   const { isInitializing } = useAppStore();
   const [user, setUser] = useState<User | null>(null);
 
-  // Sync local user state with Zustand store
+  // Sync local user state with Zustand store (include email from store for subscription flow)
   useEffect(() => {
     if (isAuthenticated && user_id) {
       setUser({
         id: user_id,
-        email: username || `${user_id}@propella.ng`,
+        email: storeEmail ?? username ?? `${user_id}@propella.ng`,
         username: username || user_id,
         nickname: nickname || username || user_id,
       });
     } else {
       setUser(null);
     }
-  }, [isAuthenticated, user_id, nickname, username]);
+  }, [isAuthenticated, user_id, nickname, username, storeEmail]);
 
-  // Try to fetch user data from backend
+  // Try to fetch user data from backend and sync to store (JWT: send Bearer token)
   const refreshUser = async (): Promise<void> => {
     try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("access_token") ||
+            localStorage.getItem("propella_token") ||
+            localStorage.getItem("auth_token")
+          : null;
       const response = await fetch(`${ENV.API_BASE_URL}/accounts/me/`, {
         method: "GET",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
       });
 
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
+        const updates: Parameters<typeof setStoreUser>[0] = {};
+        if (userData?.id != null) updates.user_id = String(userData.id);
+        if (userData?.email != null) updates.email = userData.email;
+        if (userData?.username != null) updates.username = userData.username;
+        if (userData?.nickname != null) updates.nickname = userData.nickname;
+        if (Object.keys(updates).length > 0) setStoreUser(updates);
       } else if (response.status === 401) {
         console.log("[Auth] Session expired");
       }

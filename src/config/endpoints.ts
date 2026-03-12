@@ -16,6 +16,7 @@ export const ENDPOINTS = {
   auth: {
     login: `/accounts/token/`,
     refresh: `/accounts/token/refresh/`,
+    me: `/accounts/me/`,
     register: `/accounts/register/`,
     verifyEmail: `/accounts/verify-email/`,
     resendCode: `/accounts/resend-code/`,

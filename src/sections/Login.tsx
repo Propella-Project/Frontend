@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { login, getUser } from "@/lib/api";
+import { login } from "@/lib/api";
+import { authApi } from "@/api/auth.api";
 import { setCookie } from "@/lib/cookies";
 import { RocketLogo } from "@/components/logo/RocketLogo";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -29,30 +30,40 @@ export function Login() {
     const result = await login({ email, password });
     
     if (result.success && result.data) {
-      // Store auth tokens in localStorage for this domain
-      localStorage.setItem("auth_token", result.data.access);
-      localStorage.setItem("access_token", result.data.access);
-      localStorage.setItem("refresh_token", result.data.refresh);
+      const access = result.data.access;
+      const refresh = result.data.refresh;
 
-      // Also set cookies for cross-subdomain access (dashboard.propella.ng)
-      setCookie("auth_token", result.data.access, 7);
-      setCookie("access_token", result.data.access, 7);
-      setCookie("refresh_token", result.data.refresh, 7);
+      // Store tokens in all names used by the app (How_it_works.md §4: access + refresh)
+      localStorage.setItem("propella_token", access);
+      localStorage.setItem("access_token", access);
+      localStorage.setItem("auth_token", access);
+      localStorage.setItem("propella_refresh_token", refresh);
+      localStorage.setItem("refresh_token", refresh);
 
-      // Fetch user data to get user_id and username
-      const userResult = await getUser();
-      if (userResult.success && userResult.data) {
+      authApi.setToken(access);
+      authApi.setRefreshToken(refresh);
+
+      // Cookies for cross-subdomain (e.g. dashboard.propella.ng)
+      setCookie("auth_token", access, 7);
+      setCookie("access_token", access, 7);
+      setCookie("refresh_token", refresh, 7);
+
+      // Fetch current user and persist in store (so login state survives reload)
+      try {
+        const me = await authApi.getMe();
         const userData = {
-          user_id: String(userResult.data.id),
-          username: userResult.data.username,
-          email: (userResult.data as { email?: string }).email ?? email,
+          user_id: String(me.id),
+          email: me.email ?? email,
+          username: me.username ?? undefined,
+          nickname: me.nickname ?? me.username ?? email.split("@")[0],
         };
         setUser(userData);
-        localStorage.setItem("propella_user_id", String(userResult.data.id));
-        console.log("[Login] User data stored:", userData);
+        localStorage.setItem("propella_user_id", String(me.id));
+      } catch (err) {
+        console.warn("[Login] getMe failed, using form email:", err);
+        setUser({ email, nickname: email.split("@")[0] });
       }
 
-      // Update auth state BEFORE navigation
       setAuthenticated(true);
       
       toast.success("Login successful!");
