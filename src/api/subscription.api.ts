@@ -138,8 +138,25 @@ export const subscriptionApi = {
       const messageStr = typeof responseWrapper.message === 'object' 
         ? responseWrapper.message?.message || responseWrapper.message?.code || JSON.stringify(responseWrapper.message)
         : responseWrapper.message;
+      
+      // Check if user already has an active subscription - treat as success
+      const errorMsg = messageStr?.toLowerCase() || '';
+      if (errorMsg.includes('already have an active subscription')) {
+        console.log("[Subscription] User already has active subscription - treating as success");
+        return {
+          id: "existing_subscription",
+          status: "success",
+          amount: 0,
+          currency: "NGN",
+          payment_link: "",
+          transaction_ref: "existing",
+          transaction_id: "existing",
+          created_at: new Date().toISOString(),
+        };
+      }
+      
       if (responseWrapper.status === 'error' || 
-          messageStr?.toLowerCase().includes('error')) {
+          (messageStr?.toLowerCase().includes('error') && !errorMsg.includes('already'))) {
         throw new Error(messageStr || "Subscription failed");
       }
       
@@ -220,16 +237,45 @@ export const subscriptionApi = {
       transaction_id: transactionId,
     };
     if (planId) body.plan_id = planId;
+    
+    console.log("[Subscription] Verifying payment with body:", body);
+    console.log("[Subscription] Endpoint:", ENDPOINTS.subscriptions.verify);
+    
     const response = await apiClient.post(
       ENDPOINTS.subscriptions.verify,
       body,
     );
-    return response.data;
+    
+    console.log("[Subscription] Verification raw response:", response.data);
+    
+    // Handle nested response structure - backend may wrap response in a 'data' field
+    const responseData = response.data;
+    
+    // If the response is already in the expected format, return it
+    if (responseData.status && (responseData.subscription !== undefined || responseData.message)) {
+      return responseData as VerifySubscriptionResponse;
+    }
+    
+    // If response is nested (e.g., { data: { status, subscription, message } })
+    if (responseData.data && typeof responseData.data === 'object') {
+      const nestedData = responseData.data;
+      return {
+        status: nestedData.status || responseData.status || "error",
+        subscription: nestedData.subscription || null,
+        message: nestedData.message || responseData.message || "Unknown response",
+      };
+    }
+    
+    // Fallback: try to construct a valid response
+    return {
+      status: responseData.status || "error",
+      subscription: responseData.subscription || null,
+      message: responseData.message || "Payment verification completed",
+    };
   },
 
   // Get current user's subscription status
-  // Note: Backend doesn't have a dedicated status endpoint yet
-  // This returns fallback data - the app should check local state or payment history
+  // Checks localStorage first, then tries to verify with backend
   getSubscriptionStatus: async (): Promise<UserSubscriptionStatus> => {
     // Check if user is authenticated
     const token = getToken();
@@ -242,10 +288,75 @@ export const subscriptionApi = {
       };
     }
     
-    // For now, return fallback data
-    // In the future, this could check localStorage for payment confirmation
-    // or call a dedicated backend endpoint when available
-    console.log("[Subscription] Using fallback status (no backend endpoint)");
+    // Check localStorage for payment confirmation first
+    const paymentVerified = localStorage.getItem("propella_payment_verified");
+    const pendingId = localStorage.getItem("pending_transaction_id");
+    
+    if (paymentVerified === "true") {
+      console.log("[Subscription] Payment verified in localStorage");
+      return {
+        has_active_subscription: true,
+        subscription: {
+          id: "local",
+          user_id: "",
+          plan_id: "",
+          status: "active",
+          start_date: new Date().toISOString(),
+          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+        },
+        days_remaining: 30,
+      };
+    }
+    
+    // Try to verify any pending transaction
+    if (pendingId) {
+      try {
+        const pendingPlanId = localStorage.getItem("pending_plan_id");
+        const verifyResult = await subscriptionApi.verifySubscription(pendingId, pendingPlanId ?? undefined);
+        if ((verifyResult.status === "success" || verifyResult.status === "successful") && verifyResult.subscription) {
+          console.log("[Subscription] Verified via pending transaction");
+          const sub = verifyResult.subscription;
+          return {
+            has_active_subscription: true,
+            subscription: {
+              id: sub.id,
+              user_id: sub.user_id,
+              plan_id: sub.plan_id,
+              status: sub.status,
+              start_date: sub.start_date,
+              end_date: sub.end_date,
+              created_at: new Date().toISOString(),
+            },
+            days_remaining: 30, // Calculate from dates if available
+          };
+        }
+      } catch (err) {
+        console.log("[Subscription] Pending transaction verification failed:", err);
+      }
+    }
+    
+    // Check if user profile indicates paid status
+    // This is a workaround until a dedicated endpoint is available
+    try {
+      // Try to access the plans endpoint - if it works, user is authenticated
+      // This indirectly tells us the user is logged in
+      await subscriptionApi.getPlans();
+      
+      // If we get here, user is authenticated
+      // Check if there's any indication of subscription in local state
+      const storedStatus = localStorage.getItem("propella_subscription_status");
+      if (storedStatus) {
+        const parsed = JSON.parse(storedStatus);
+        if (parsed.has_active_subscription) {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      console.log("[Subscription] Could not verify subscription status:", err);
+    }
+    
+    console.log("[Subscription] No active subscription found");
     return {
       has_active_subscription: false,
       subscription: null,

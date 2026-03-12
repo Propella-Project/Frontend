@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { toast } from "sonner";
 import type {
   User,
   Subject,
@@ -18,6 +19,7 @@ import { JAMB_SUBJECTS, BADGES, RANKS } from "@/types";
 import { FEATURES } from "@/config/env";
 import aiQuizService from "@/services/aiQuiz.service";
 import aiRoadmapService from "@/services/aiRoadmap.service";
+import { roadmapApi } from "@/api/roadmap.api";
 // import aiTutorService from "@/services/aiTutor.service"; // Available for future use
 
 interface AppState {
@@ -386,26 +388,41 @@ export const useStore = create<AppState>()(
       },
 
       generateRoadmapWithAI: async () => {
-        const { user, selectedSubjects, diagnosticResults } = get();
-        if (!user || !user.examDate) return;
+        const { user, selectedSubjects, diagnosticResults, quizHistory } = get();
+        if (!user || !user.examDate) {
+          console.warn("[Store] Cannot generate roadmap: missing user or exam date");
+          return;
+        }
 
         set({ isGeneratingRoadmap: true, generationError: null });
 
         try {
-          const roadmap = await aiRoadmapService.generateAIRoadmap(
-            user.id || "user_1",
-            selectedSubjects,
-            new Date(user.examDate),
-            user.dailyStudyHours,
-            diagnosticResults || undefined,
-          );
+          // Use the new local roadmap generator (no AI Engine needed)
+          const generatedRoadmap = await roadmapApi.generateAndSaveRoadmap({
+            studentId: user.id || "user_1",
+            subjects: selectedSubjects,
+            examDate: new Date(user.examDate),
+            dailyStudyHours: user.dailyStudyHours,
+            quizHistory: quizHistory,
+            weakTopics: diagnosticResults?.weakTopics,
+            strongTopics: diagnosticResults?.strongTopics,
+          });
 
-          set({ roadmap, isGeneratingRoadmap: false });
+          set({ 
+            roadmap: generatedRoadmap.days, 
+            isGeneratingRoadmap: false 
+          });
+          
+          console.log("[Store] Roadmap generated successfully:", {
+            days: generatedRoadmap.days.length,
+            weakTopics: generatedRoadmap.metadata.weakTopics,
+            strongTopics: generatedRoadmap.metadata.strongTopics,
+          });
         } catch (error) {
-          console.error("AI roadmap generation failed:", error);
+          console.error("[Store] Roadmap generation failed:", error);
           set({
             isGeneratingRoadmap: false,
-            generationError: "Failed to generate AI roadmap",
+            generationError: "Failed to generate roadmap",
           });
           throw error;
         }
@@ -598,7 +615,7 @@ export const useStore = create<AppState>()(
       },
 
       completeQuiz: async () => {
-        const { currentQuiz, user } = get();
+        const { currentQuiz, user, quizHistory, selectedSubjects } = get();
         if (!currentQuiz) return;
 
         let correct = 0;
@@ -618,9 +635,63 @@ export const useStore = create<AppState>()(
           timeTaken,
         };
 
+        // Calculate subject-specific scores for this quiz
+        const subjectScores: Record<string, number> = {};
+        const topicScores: Record<string, number> = {};
+        
+        // Group questions by subject and calculate scores
+        const subjectQuestions: Record<string, { correct: number; total: number }> = {};
+        const topicQuestionCounts: Record<string, { correct: number; total: number }> = {};
+        
+        currentQuiz.questions.forEach((q, idx) => {
+          const isCorrect = currentQuiz.answers[idx] === q.correctAnswer;
+          
+          // Subject scores
+          if (!subjectQuestions[q.subjectId]) {
+            subjectQuestions[q.subjectId] = { correct: 0, total: 0 };
+          }
+          subjectQuestions[q.subjectId].total++;
+          if (isCorrect) subjectQuestions[q.subjectId].correct++;
+          
+          // Topic scores
+          if (!topicQuestionCounts[q.topic]) {
+            topicQuestionCounts[q.topic] = { correct: 0, total: 0 };
+          }
+          topicQuestionCounts[q.topic].total++;
+          if (isCorrect) topicQuestionCounts[q.topic].correct++;
+        });
+        
+        // Calculate percentages
+        Object.entries(subjectQuestions).forEach(([subjectId, data]) => {
+          subjectScores[subjectId] = Math.round((data.correct / data.total) * 100);
+        });
+        
+        Object.entries(topicQuestionCounts).forEach(([topic, data]) => {
+          topicScores[topic] = Math.round((data.correct / data.total) * 100);
+        });
+        
+        // Identify weak and strong topics
+        const weakTopics = Object.entries(topicScores)
+          .filter(([_, score]) => score < 50)
+          .map(([topic, _]) => topic);
+        
+        const strongTopics = Object.entries(topicScores)
+          .filter(([_, score]) => score >= 80)
+          .map(([topic, _]) => topic);
+
+        const updatedQuizHistory = [...quizHistory, completedQuiz];
+
         set((state) => ({
           currentQuiz: null,
-          quizHistory: [...state.quizHistory, completedQuiz],
+          quizHistory: updatedQuizHistory,
+          // Update diagnostic results with actual quiz data
+          diagnosticResults: {
+            subjectScores: { ...state.diagnosticResults?.subjectScores, ...subjectScores },
+            topicScores: { ...state.diagnosticResults?.topicScores, ...topicScores },
+            weakTopics: [...new Set([...(state.diagnosticResults?.weakTopics || []), ...weakTopics])],
+            strongTopics: [...new Set([...(state.diagnosticResults?.strongTopics || []), ...strongTopics])],
+            completed: true,
+          },
           currentPage: "dashboard",
         }));
 
@@ -636,9 +707,20 @@ export const useStore = create<AppState>()(
             await aiRoadmapService.updateAIProgress(
               user.id || "user_1",
               firstQuestion.subjectId,
-              firstQuestion.topicId || firstQuestion.subjectId, // fallback to subject if no topic
+              firstQuestion.topicId || firstQuestion.subjectId,
               score,
             );
+          }
+        }
+
+        // If this is a diagnostic quiz, regenerate the roadmap with actual results
+        if (currentQuiz.type === "diagnostic" && selectedSubjects.length > 0) {
+          console.log("[Store] Diagnostic quiz completed - regenerating roadmap with results");
+          try {
+            await get().generateRoadmapWithAI();
+            toast.success("Your personalized roadmap has been updated based on your quiz results!");
+          } catch (error) {
+            console.error("[Store] Failed to regenerate roadmap after diagnostic:", error);
           }
         }
 
@@ -699,6 +781,12 @@ export const useStore = create<AppState>()(
         // Check for badges
         if (score === 100) {
           get().unlockBadge("badge_5");
+        }
+        
+        // Check for speed badge (quiz completed in under 2 minutes per question on average)
+        const avgTimePerQuestion = timeTaken / currentQuiz.totalQuestions / 1000 / 60; // in minutes
+        if (avgTimePerQuestion < 2) {
+          get().unlockBadge("badge_8");
         }
       },
 

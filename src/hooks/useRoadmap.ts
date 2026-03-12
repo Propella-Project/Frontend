@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { roadmapApi } from "@/api/roadmap.api";
+import { streakApi } from "@/api/streak.api";
 import { useAppStore } from "@/state/app.store";
 import type { ApiError, TodayRoadmapResponse } from "@/types/api.types";
 import { toast } from "sonner";
@@ -51,6 +52,7 @@ export function useRoadmap(): UseRoadmapReturn {
   const completeTask = useCallback(
     async (taskId: string): Promise<boolean> => {
       try {
+        // Call API to persist the completed task
         await roadmapApi.completeTask(taskId);
         
         // Update local state
@@ -59,15 +61,25 @@ export function useRoadmap(): UseRoadmapReturn {
         );
         
         if (todayRoadmap && updatedTasks) {
+          const completedCount = updatedTasks.filter((t) => t.status === "completed").length;
+          const totalTasks = updatedTasks.length;
+          const newProgress = Math.round((completedCount / totalTasks) * 100);
+          
           setTodayRoadmap({
             ...todayRoadmap,
             tasks: updatedTasks,
-            progress: Math.round(
-              (updatedTasks.filter((t) => t.status === "completed").length /
-                updatedTasks.length) *
-                100
-            ),
+            progress: newProgress,
           });
+          
+          // If all tasks completed, update streak
+          if (completedCount === totalTasks) {
+            try {
+              await streakApi.updateStreak();
+              toast.success("Day completed! 🔥 Streak updated!");
+            } catch (streakErr) {
+              console.warn("[Roadmap] Failed to update streak:", streakErr);
+            }
+          }
         }
 
         toast.success("Task completed!");

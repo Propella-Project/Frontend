@@ -244,17 +244,31 @@ export const aiEngineApi = {
         // Response is nested under data property
         console.log("[AI Engine] Response has nested data array with", rawData.data.length, "items");
         questions = rawData.data;
+      } else if (rawData.data && rawData.data.questions && Array.isArray(rawData.data.questions)) {
+        // Response is deeply nested: data.questions
+        console.log("[AI Engine] Response has deeply nested data.questions array with", rawData.data.questions.length, "items");
+        questions = rawData.data.questions;
       } else {
         console.error("[AI Engine] Unexpected response format:", rawData);
         console.error("[AI Engine] Expected array or object with questions/data property");
         throw new Error("Invalid response format from AI Engine");
       }
       
+      // Filter out null/undefined entries first
+      questions = questions.filter(q => q != null);
+      
+      if (questions.length === 0) {
+        console.error("[AI Engine] Questions array is empty after filtering nulls");
+        throw new Error("No valid questions in AI Engine response");
+      }
+      
       // Validate each question has required fields (with lenient validation)
       const validQuestions = questions.filter((q, idx) => {
-        const hasQuestion = q.question && typeof q.question === 'string' && q.question.trim() !== '';
+        // Handle both snake_case and camelCase field names
+        const questionText = q.question || (q as unknown as Record<string, string>).question_text;
+        const hasQuestion = questionText && typeof questionText === 'string' && questionText.trim() !== '';
         const hasOptions = Array.isArray(q.options) && q.options.length >= 2;
-        const hasCorrectAnswer = q.correct_answer !== undefined && q.correct_answer !== null;
+        const hasCorrectAnswer = q.correct_answer !== undefined && q.correct_answer !== null && q.correct_answer !== '';
         
         if (!hasQuestion) {
           console.warn(`[AI Engine] Question ${idx} missing valid question text:`, q);
@@ -272,7 +286,8 @@ export const aiEngineApi = {
       console.log(`[AI Engine] Valid questions: ${validQuestions.length}/${questions.length}`);
       
       if (validQuestions.length === 0) {
-        console.error("[AI Engine] All questions failed validation. Sample question:", questions[0]);
+        console.error("[AI Engine] All questions failed validation. Sample raw question:", questions[0]);
+        console.error("[AI Engine] Question keys:", Object.keys(questions[0] || {}));
         throw new Error("No valid questions in AI Engine response");
       }
       

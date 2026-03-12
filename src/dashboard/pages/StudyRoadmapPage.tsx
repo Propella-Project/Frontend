@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 export function StudyRoadmapPage() {
   const [roadmap, setRoadmap] = useState<RoadmapDay[]>([]);
-  const [today, setToday] = useState<RoadmapDay | TodayRoadmapResponse | null>(null);
+  const [today, setToday] = useState<TodayRoadmapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
 
@@ -29,7 +29,7 @@ export function StudyRoadmapPage() {
       try {
         const [todayData, fullRoadmap] = await Promise.all([
           roadmapApi.getToday().catch(() => null),
-          roadmapApi.getFullRoadmap().catch(() => ({ days: [] })),
+          roadmapApi.getFullRoadmap().catch(() => ({ days: [] as RoadmapDay[] })),
         ]);
         setToday(todayData);
         setRoadmap(fullRoadmap.days || []);
@@ -55,8 +55,8 @@ export function StudyRoadmapPage() {
         if (!prev) return prev;
         return {
           ...prev,
-          tasks: prev.tasks.map((t: RoadmapTask) =>
-            t.id === taskId ? { ...t, is_completed: true } : t
+          tasks: prev.tasks.map((t) =>
+            t.id === taskId ? { ...t, is_completed: true, status: "completed" as const } : t
           ),
         };
       });
@@ -71,9 +71,9 @@ export function StudyRoadmapPage() {
   };
 
   // Calculate progress
-  const getProgress = (day: RoadmapDay) => {
+  const getProgress = (day: RoadmapDay | TodayRoadmapResponse) => {
     if (!day.tasks.length) return 0;
-    const completed = day.tasks.filter((t: RoadmapTask) => t.is_completed).length;
+    const completed = day.tasks.filter((t) => t.is_completed || t.status === "completed").length;
     return Math.round((completed / day.tasks.length) * 100);
   };
 
@@ -126,20 +126,20 @@ export function StudyRoadmapPage() {
                       <Calendar className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-white">Today's Tasks</CardTitle>
+                      <CardTitle className="text-white">Today&apos;s Tasks</CardTitle>
                       <CardDescription className="text-gray-400">
-                        Day {(today as RoadmapDay).day_number} • {(today as RoadmapDay).estimated_hours || 0} hours estimated
+                        {today.notes || "Focus on your studies"}
                       </CardDescription>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-white">{getProgress(today as RoadmapDay)}%</p>
+                    <p className="text-2xl font-bold text-white">{getProgress(today)}%</p>
                     <p className="text-xs text-gray-500">Complete</p>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <Progress value={getProgress(today as RoadmapDay)} className="mb-6 h-2" />
+                <Progress value={getProgress(today)} className="mb-6 h-2" />
                 
                 <div className="space-y-3">
                   {today.tasks.map((task: RoadmapTask, index: number) => (
@@ -150,29 +150,29 @@ export function StudyRoadmapPage() {
                       transition={{ delay: index * 0.1 }}
                       className={cn(
                         "flex items-center gap-4 p-4 rounded-lg border",
-                        task.is_completed
+                        task.is_completed || task.status === "completed"
                           ? "bg-green-500/10 border-green-500/30"
                           : "bg-[#0F0F11] border-white/10"
                       )}
                     >
                       <button
-                        onClick={() => !task.is_completed && completeTask(task.id)}
-                        disabled={task.is_completed || completingTask === task.id}
+                        onClick={() => !(task.is_completed || task.status === "completed") && completeTask(task.id)}
+                        disabled={(task.is_completed || task.status === "completed") || completingTask === task.id}
                         className={cn(
                           "flex-shrink-0 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                          task.is_completed
+                          task.is_completed || task.status === "completed"
                             ? "bg-green-500 border-green-500"
                             : "border-gray-500 hover:border-[#18A0FB]"
                         )}
                       >
-                        {task.is_completed && (
+                        {(task.is_completed || task.status === "completed") && (
                           <CheckCircle2 className="h-4 w-4 text-white" />
                         )}
                       </button>
 
                       <div className={cn(
                         "h-10 w-10 rounded-lg flex items-center justify-center",
-                        task.is_completed
+                        task.is_completed || task.status === "completed"
                           ? "bg-green-500/20 text-green-400"
                           : "bg-[#18A0FB]/20 text-[#18A0FB]"
                       )}>
@@ -182,7 +182,7 @@ export function StudyRoadmapPage() {
                       <div className="flex-1 min-w-0">
                         <p className={cn(
                           "font-medium truncate",
-                          task.is_completed ? "text-gray-400 line-through" : "text-white"
+                          task.is_completed || task.status === "completed" ? "text-gray-400 line-through" : "text-white"
                         )}>
                           {task.title}
                         </p>
@@ -193,9 +193,9 @@ export function StudyRoadmapPage() {
 
                       <div className="flex items-center gap-4">
                         <span className="text-sm text-gray-500 whitespace-nowrap">
-                          {task.duration_minutes} min
+                          {task.duration_minutes || task.duration} min
                         </span>
-                        {!task.is_completed && (
+                        {!(task.is_completed || task.status === "completed") && (
                           <Button
                             size="sm"
                             onClick={() => completeTask(task.id)}
@@ -267,10 +267,10 @@ export function StudyRoadmapPage() {
                           )}
                         </div>
                         <h4 className="font-medium text-white mb-1 truncate">
-                          {day.title}
+                          {day.notes?.split(":")[0] || `Day ${day.day_number}`}
                         </h4>
                         <p className="text-xs text-gray-500 mb-3">
-                          {day.tasks.length} tasks • {day.estimated_hours} hrs
+                          {day.tasks?.length || 0} tasks
                         </p>
                         <div className="flex items-center gap-2">
                           <Progress value={progress} className="h-1.5 flex-1" />
@@ -311,7 +311,9 @@ export function StudyRoadmapPage() {
                 </div>
                 <div className="text-center p-4 rounded-lg bg-[#0F0F11]">
                   <p className="text-2xl font-bold text-yellow-500">
-                    {roadmap.reduce((acc: number, day: RoadmapDay) => acc + day.tasks.filter((t: RoadmapTask) => t.is_completed).length, 0)}
+                    {roadmap.reduce((acc: number, day: RoadmapDay) => 
+                      acc + (day.tasks?.filter((t: RoadmapTask) => t.is_completed || t.status === "completed").length || 0), 0
+                    )}
                   </p>
                   <p className="text-sm text-gray-500">Tasks Done</p>
                 </div>

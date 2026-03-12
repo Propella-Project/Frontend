@@ -140,6 +140,33 @@ export function usePayment(): UsePaymentReturn {
         const errorMessage = err instanceof Error ? err.message : "Failed to initiate payment";
         setError(errorMessage);
         
+        // Handle "already has active subscription" - treat as success
+        if (errorMessage.toLowerCase().includes("already have an active subscription")) {
+          console.log("[usePayment] User already has active subscription");
+          setPaymentStatus("paid");
+          setUser({ payment_status: "paid" });
+          
+          // Fetch roadmap
+          try {
+            const todayRoadmap = await roadmapApi.getTodayRoadmap();
+            setTodayRoadmap(todayRoadmap);
+            toast.success("You already have an active subscription!");
+          } catch (roadmapErr) {
+            console.error("[usePayment] Failed to fetch roadmap:", roadmapErr);
+          }
+          
+          return {
+            id: "existing_subscription",
+            status: "success",
+            amount: 0,
+            currency: "NGN",
+            payment_link: "",
+            transaction_ref: "existing",
+            transaction_id: "existing",
+            created_at: new Date().toISOString(),
+          };
+        }
+        
         // Handle auth error specifically
         if (errorMessage.includes("log in") || errorMessage.includes("authentication")) {
           toast.error("Please log in to subscribe", {
@@ -164,19 +191,40 @@ export function usePayment(): UsePaymentReturn {
       setError(null);
 
       const effectivePlanId = planId ?? localStorage.getItem("pending_plan_id") ?? undefined;
+      
+      console.log("[usePayment] Verifying subscription:", { transactionRef, effectivePlanId });
 
       try {
         const response = await subscriptionApi.verifySubscription(transactionRef, effectivePlanId);
+        
+        console.log("[usePayment] Verification response:", response);
 
-        if (response.status === "success" && response.subscription) {
+        // Check for success - handle various response formats
+        // Backend may return: { status: "success", subscription: {...} } or { status: "successful", subscription: {...} }
+        const isSuccess = 
+          (response.status === "success" || response.status === "successful") && 
+          response.subscription;
+        
+        if (isSuccess) {
           setPaymentStatus("paid");
           setUser({ payment_status: "paid" });
+          
+          // Store subscription status in localStorage
+          localStorage.setItem("propella_payment_verified", "true");
+          localStorage.setItem("propella_subscription_status", JSON.stringify({
+            has_active_subscription: true,
+            subscription: response.subscription,
+            days_remaining: 30,
+          }));
 
+          // Fetch today's roadmap to unlock it
           try {
+            console.log("[usePayment] Fetching today's roadmap...");
             const todayRoadmap = await roadmapApi.getTodayRoadmap();
             setTodayRoadmap(todayRoadmap);
+            console.log("[usePayment] Roadmap fetched successfully:", todayRoadmap);
           } catch (roadmapErr) {
-            console.error("Failed to fetch roadmap:", roadmapErr);
+            console.error("[usePayment] Failed to fetch roadmap:", roadmapErr);
           }
 
           localStorage.removeItem("pending_transaction_id");
@@ -187,6 +235,13 @@ export function usePayment(): UsePaymentReturn {
 
           return true;
         } else {
+          // Log the failure reason
+          console.error("[usePayment] Verification failed:", {
+            status: response.status,
+            hasSubscription: !!response.subscription,
+            message: response.message,
+          });
+          
           const msg = typeof response.message === 'object' && response.message !== null 
             ? (response.message as {message?: string; code?: string}).message || (response.message as {message?: string; code?: string}).code 
             : response.message;
@@ -195,6 +250,7 @@ export function usePayment(): UsePaymentReturn {
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to verify subscription";
+        console.error("[usePayment] Verification error:", err);
         setError(errorMessage);
         toast.error(errorMessage);
         return false;
@@ -289,7 +345,8 @@ export function usePaymentStatus() {
     const pendingPlanId = localStorage.getItem("pending_plan_id");
     if (pendingId) {
       subscriptionApi.verifySubscription(pendingId, pendingPlanId ?? undefined).then((response) => {
-        if (response.status === "success" && response.subscription) {
+        // Handle both "success" and "successful" status from backend
+        if ((response.status === "success" || response.status === "successful") && response.subscription) {
           console.log("[PaymentStatus] Pending transaction verified");
           setPaymentStatus("paid");
           setUser({ payment_status: "paid" });

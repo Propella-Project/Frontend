@@ -16,7 +16,7 @@ export const ENDPOINTS = {
     // POST - Login to get access/refresh tokens
     login: `/accounts/token/`,
     // POST - Refresh access token
-    refresh: `/accounts/token/refresh/`,
+    refresh: `/accounts/token/refrefsh/`,
     // POST - Register new user
     register: `/accounts/register/`,
     // POST - Verify email with code
@@ -24,7 +24,7 @@ export const ENDPOINTS = {
     // POST - Resend verification code
     resendCode: `/accounts/resend-code/`,
     // POST - Request password reset
-    forgotPassword: `/accounts/forgot-password/`,
+    forgotPassword: `/api/accounts/forgot-password/`,
     // PUT/PATCH - Change password (authenticated)
     changePassword: `/accounts/change-password/`,
     // POST - Reset password with uid/token
