@@ -29,6 +29,7 @@ export interface UserProfile {
   user_id: string;
   username?: string;  // From backend registration
   nickname: string;
+  email?: string;  // For Flutterwave customer field
   rank: string;
   level: number;
   points: number;

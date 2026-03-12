@@ -12,68 +12,56 @@
 
 export const ENDPOINTS = {
   // Authentication (JWT)
+  // Auth (How_it_works.md §1–6, 15–16)
   auth: {
-    // POST - Login to get access/refresh tokens
     login: `/accounts/token/`,
-    // POST - Refresh access token
-    refresh: `/accounts/token/refrefsh/`,
-    // POST - Register new user
+    refresh: `/accounts/token/refresh/`,
     register: `/accounts/register/`,
-    // POST - Verify email with code
     verifyEmail: `/accounts/verify-email/`,
-    // POST - Resend verification code
     resendCode: `/accounts/resend-code/`,
-    // POST - Request password reset
-    forgotPassword: `/api/accounts/forgot-password/`,
-    // PUT/PATCH - Change password (authenticated)
+    forgotPassword: `/accounts/forgot-password/`,
     changePassword: `/accounts/change-password/`,
-    // POST - Reset password with uid/token
-    resetPassword: (uid: string, token: string) => `/accounts/reset-password/${uid}/${token}/`,
+    // POST /api/accounts/reset-password/ body: { token, new_password }
+    resetPassword: `/accounts/reset-password/`,
   },
 
-  // User Management
+  // User Management (How_it_works.md §7–8)
   users: {
-    // GET - Get all users (admin)
     allUsers: `/accounts/all-users/`,
-    // PUT/PATCH - Edit user by ID
-    editUser: (userId: string) => `/accounts/edit-user/${userId}/`,
+    editUser: `/accounts/edit-user/`,
   },
 
-  // Exam Profile
+  // Exam Profile (How_it_works.md §9–10)
   examProfile: {
-    // POST - Create exam profile
     create: `/accounts/create-exam-profile/`,
-    // PUT/PATCH - Edit exam profile
-    edit: (profileId: string) => `/accounts/edit-exam-profile/${profileId}/`,
+    edit: `/accounts/edit-exam-profile/`,
   },
 
-  // Referrals
+  // Referrals (How_it_works.md §11)
   referrals: {
-    // GET - Get referral stats for current user
-    getStats: `/accounts/referrals/`,
+    getStats: `/accounts/my-referrals/`,
   },
 
-  // Subscriptions
+  // Subscriptions (How_it_works.md §12–14)
   subscriptions: {
-    // GET - Get available subscription plans (requires auth)
-    plans: `/api/accounts/plans/`,
-    // POST - Subscribe to a plan (requires auth, plan_id in body)
-    subscribe: `/api/accounts/subscribe/`,
-    // POST - Verify subscription after Flutterwave payment
-    verify: `/api/accounts/verify-subscription/`,
+    plans: `/accounts/plans/`,
+    paymentConfig: `/accounts/payment-config/`,
+    subscribe: `/accounts/subscribe/`,
+    verify: `/accounts/verify-subscription/`,
   },
 
-  // Onboarding (legacy - may need updates based on backend)
+  // Onboarding
   onboarding: {
-    examProfile: `/api/accounts/create-exam-profile/`,
+    examProfile: `/accounts/create-exam-profile/`,
     userSubjects: `/user-subjects/`,
   },
 
   // Note: No dedicated dashboard endpoint - data comes from subscribe + referrals endpoints
 
-  // Diagnostic Quiz (legacy - may need updates based on backend)
+  // Diagnostic Quiz – POST with body { subjects, topic, difficulty, number_of_questions }
   diagnostic: {
     getQuiz: (subject: string) => `/diagnostic-quiz/?subject=${subject}`,
+    generateQuiz: `/diagnostic-quiz/`,
     submitResults: `/quiz-results/`,
   },
 

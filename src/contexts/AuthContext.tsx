@@ -42,8 +42,6 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-const API_BASE_URL = ENV.API_BASE_URL.replace(/\/api$/, '');
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const { isAuthenticated, user_id, nickname, username, clearUser } = useUserStore();
   const { isInitializing } = useAppStore();
@@ -66,7 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Try to fetch user data from backend
   const refreshUser = async (): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
+      const response = await fetch(`${ENV.API_BASE_URL}/accounts/me/`, {
         method: "GET",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -86,7 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Logout
   const logout = async (): Promise<void> => {
     try {
-      await fetch(`${API_BASE_URL}/api/accounts/logout/`, {
+      await fetch(`${ENV.API_BASE_URL}/accounts/logout/`, {
         method: "POST",
         credentials: "include",
       });

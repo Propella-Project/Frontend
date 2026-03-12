@@ -151,16 +151,16 @@ export const authApi = {
     return response.data;
   },
 
-  // Reset password (POST /api/accounts/reset-password/{uid}/{token}/)
+  // Reset password (How_it_works.md §16) POST /api/accounts/reset-password/ body: { token, new_password }
   resetPassword: async (
-    uid: string, 
-    token: string, 
+    _uid: string,
+    token: string,
     payload: ResetPasswordPayload
   ): Promise<void> => {
-    const response = await apiClient.post(
-      ENDPOINTS.auth.resetPassword(uid, token), 
-      payload
-    );
+    const response = await apiClient.post(ENDPOINTS.auth.resetPassword, {
+      token,
+      new_password: payload.new_password,
+    });
     return response.data;
   },
 

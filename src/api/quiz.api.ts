@@ -6,49 +6,81 @@ import type {
   QuizResultsPayload,
 } from "@/types/api.types";
 
-// Default quiz configuration
+// Default quiz configuration (matches backend schema)
 const DEFAULT_QUIZ_CONFIG = {
   number_of_questions: 10,
   difficulty: "medium" as const,
+  topic: "any" as const,
 };
 
+// Backend quiz payload: { subjects: string[], topic, difficulty, number_of_questions }
+// Response: { questions: [{ subject, question, options, correct_answer, explanation, allocated_time }] }
+export interface GenerateQuizPayload {
+  subjects: string[];
+  topic?: string;
+  difficulty?: string;
+  number_of_questions?: number;
+}
+
+function normalizeSubjects(subjects: string[]): string[] {
+  return subjects.map((s) => (typeof s === "string" ? s.trim().toLowerCase() : String(s)));
+}
+
 export const quizApi = {
-  // Get diagnostic quiz for a subject - POWERED BY AI ENGINE
+  // Generate quiz from backend: POST with user's selected subjects (e.g. from onboarding) + topic, difficulty, number_of_questions
+  generateDiagnosticQuiz: async (
+    payload: GenerateQuizPayload
+  ): Promise<DiagnosticQuestion[]> => {
+    const body = {
+      subjects: normalizeSubjects(payload.subjects),
+      topic: payload.topic ?? DEFAULT_QUIZ_CONFIG.topic,
+      difficulty: payload.difficulty ?? DEFAULT_QUIZ_CONFIG.difficulty,
+      number_of_questions: payload.number_of_questions ?? DEFAULT_QUIZ_CONFIG.number_of_questions,
+    };
+    const response = await apiClient.post(ENDPOINTS.diagnostic.generateQuiz, body);
+    const data = response.data as { questions?: DiagnosticQuestion[] };
+    const questions = Array.isArray(data?.questions) ? data.questions : [];
+    return questions;
+  },
+
+  // Get diagnostic quiz for a single subject (AI first, then backend POST with new schema)
   getDiagnosticQuiz: async (subject: string, topic?: string): Promise<DiagnosticQuestion[]> => {
+    const effectiveTopic = topic?.trim() ? topic : DEFAULT_QUIZ_CONFIG.topic;
+    const requestBody = {
+      subjects: [normalizeSubjects([subject])[0]],
+      topic: effectiveTopic,
+      difficulty: DEFAULT_QUIZ_CONFIG.difficulty,
+      number_of_questions: DEFAULT_QUIZ_CONFIG.number_of_questions,
+    };
     try {
-      // Try AI Engine first for dynamic quiz generation
-      // AI Engine requires topic field and uses 'subjects' (plural) as array
-      const requestBody = {
-        subjects: [subject],  // subjects must be an array
-        topic: topic && topic.trim() !== "" ? topic : "General",
-        difficulty: DEFAULT_QUIZ_CONFIG.difficulty,
-        number_of_questions: DEFAULT_QUIZ_CONFIG.number_of_questions,
-      };
-      
       const aiResponse = await aiEngineApi.generateQuiz(requestBody);
-      
-      // Transform AI Engine response to match expected format
       return aiResponse.questions.map((q) => ({
         subject: q.subject,
         question: q.question,
         options: q.options,
         correct_answer: q.correct_answer,
-        allocated_time: q.allocated_time || 60,
+        allocated_time: q.allocated_time ?? 60,
+        explanation: (q as { explanation?: string }).explanation,
       }));
     } catch (aiError) {
       console.warn("[Quiz] AI Engine failed, using fallback:", aiError);
-      
-      // Fallback: Try backend API (response may be { questions: [...] } or array)
-      try {
-        const response = await apiClient.get(ENDPOINTS.diagnostic.getQuiz(subject));
-        const data = response.data;
-        const questions = Array.isArray(data) ? data : data?.questions ?? [];
-        return questions;
-      } catch (backendError) {
-        console.warn("[Quiz] Backend failed, using local fallback");
-        // Return AI-generated style fallback questions
-        return generateFallbackQuestions(subject, topic);
-      }
+    }
+    try {
+      const questions = await apiClient
+        .post(ENDPOINTS.diagnostic.generateQuiz, requestBody)
+        .then((r) => (r.data as { questions?: DiagnosticQuestion[] }).questions ?? []);
+      if (questions.length > 0) return questions;
+    } catch {
+      // ignore
+    }
+    try {
+      const response = await apiClient.get(ENDPOINTS.diagnostic.getQuiz(subject));
+      const data = response.data;
+      const questions = Array.isArray(data) ? data : (data as { questions?: DiagnosticQuestion[] })?.questions ?? [];
+      return questions;
+    } catch (backendError) {
+      console.warn("[Quiz] Backend failed, using local fallback");
+      return generateFallbackQuestions(subject, topic);
     }
   },
 

@@ -1,7 +1,7 @@
 import apiClient from "./client";
 import { ENDPOINTS } from "@/config/endpoints";
-import { ENV } from "@/config/env";
 import { getToken } from "./client";
+import { generateTransactionRef } from "@/services/flutterwave.service";
 
 // Raw plan from backend API
 export interface RawSubscriptionPlan {
@@ -28,6 +28,13 @@ export interface SubscriptionPayload {
   plan_id: string;
   payment_method: string;
   transaction_ref?: string;
+  amount: number;
+  currency?: string;
+  customer: {
+    email: string;
+    name: string;
+    phone_number?: string;
+  };
 }
 
 export interface SubscribeResponse {
@@ -105,173 +112,39 @@ export const subscriptionApi = {
     }));
   },
 
-  // Initiate subscription - returns Flutterwave payment link (requires auth)
+  // Initiate subscription - used when payment is opened via flutterwave-react-v3 in PaymentModal.
+  // This is a no-op stub for callers that still use initiatePayment(); the modal handles Flutterwave.
   subscribe: async (
     payload: SubscriptionPayload,
   ): Promise<SubscribeResponse> => {
-    console.log("[Subscription] Subscribing to plan:", payload.plan_id);
-    console.log("[Subscription] Endpoint:", ENDPOINTS.subscriptions.subscribe);
-    console.log("[Subscription] Full URL:", `${ENV.API_BASE_URL}${ENDPOINTS.subscriptions.subscribe}`);
-    
-    // Check if user is authenticated (supports both dashboard and landing page tokens)
     const token = getToken();
     if (!token) {
-      console.error("[Subscription] No authentication token found");
       throw new Error("Please log in to subscribe");
     }
-    
-    try {
-      const response = await apiClient.post(
-        ENDPOINTS.subscriptions.subscribe,
-        payload,
-      );
-      console.log("[Subscription] Raw response:", response.data);
-      
-      // Flutterwave success: { status: "success", message: "Hosted Link", data: { link: "https://checkout.flutterwave.com/..." } }
-      // Redirect user to data.link only when status is success and link is present
-      const responseWrapper = response.data;
-      if (!responseWrapper) {
-        throw new Error("Empty response from server");
-      }
-      
-      // Check for error in wrapper
-      const messageStr = typeof responseWrapper.message === 'object' 
-        ? responseWrapper.message?.message || responseWrapper.message?.code || JSON.stringify(responseWrapper.message)
-        : responseWrapper.message;
-      
-      // Check if user already has an active subscription - treat as success
-      const errorMsg = messageStr?.toLowerCase() || '';
-      if (errorMsg.includes('already have an active subscription')) {
-        console.log("[Subscription] User already has active subscription - treating as success");
-        return {
-          id: "existing_subscription",
-          status: "success",
-          amount: 0,
-          currency: "NGN",
-          payment_link: "",
-          transaction_ref: "existing",
-          transaction_id: "existing",
-          created_at: new Date().toISOString(),
-        };
-      }
-      
-      if (responseWrapper.status === 'error' || 
-          (messageStr?.toLowerCase().includes('error') && !errorMsg.includes('already'))) {
-        throw new Error(messageStr || "Subscription failed");
-      }
-      
-      // Extract actual data from nested structure
-      const data = responseWrapper.data || responseWrapper;
-      console.log("[Subscription] Extracted data:", data);
-      
-      // Validate required fields - check multiple possible field names
-      const paymentLink = data.link || data.payment_link || data.payment_url || data.checkout_url;
-      if (!paymentLink) {
-        console.error("[Subscription] No payment link in response:", responseWrapper);
-        throw new Error("Payment link not received from server. Please try again.");
-      }
-      
-      // Normalize response to match SubscribeResponse interface
-      return {
-        id: data.id || data.transaction_id || data.ref || String(Date.now()),
-        status: responseWrapper.status || 'success',
-        amount: data.amount || 0,
-        currency: data.currency || 'NGN',
-        payment_link: paymentLink,
-        transaction_ref: data.transaction_ref || data.transaction_id || data.ref,
-        transaction_id: data.transaction_id || data.id || data.ref,
-        created_at: data.created_at || new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error("[Subscription] Error:", error);
-      const axiosError = error as { response?: { status: number; data: unknown }; message?: string };
-      
-      // If it's already a processed error, re-throw it
-      if (error instanceof Error && error.message.includes("Payment link")) {
-        throw error;
-      }
-      
-      if (axiosError.response) {
-        console.error("[Subscription] Error status:", axiosError.response.status);
-        console.error("[Subscription] Error data:", axiosError.response.data);
-        
-        // Handle specific status codes
-        const errorData = axiosError.response.data as { detail?: string; message?: string | object; error?: string | object };
-        const extractMessage = (val: string | object | undefined): string => {
-          if (typeof val === 'object' && val !== null) {
-            return (val as {message?: string; code?: string}).message || (val as {message?: string; code?: string}).code || JSON.stringify(val);
-          }
-          return val || '';
-        };
-        const errorMessage = errorData?.detail || extractMessage(errorData?.message) || extractMessage(errorData?.error);
-        
-        if (axiosError.response.status === 401) {
-          throw new Error("Please log in to subscribe");
-        }
-        if (axiosError.response.status === 400) {
-          throw new Error(errorMessage || "Invalid subscription request. Please check your plan selection.");
-        }
-        if (axiosError.response.status === 500) {
-          throw new Error("Server error. Please try again later or contact support.");
-        }
-        
-        throw new Error(errorMessage || `Subscription failed (Error ${axiosError.response.status})`);
-      }
-      
-      // Network or other errors
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error("Failed to initiate subscription. Please try again.");
-    }
+    const txRef = generateTransactionRef();
+    localStorage.setItem("pending_transaction_id", txRef);
+    localStorage.setItem("pending_plan_id", payload.plan_id);
+    return {
+      id: txRef,
+      status: "success",
+      amount: payload.amount,
+      currency: payload.currency ?? "NGN",
+      payment_link: "",
+      transaction_ref: txRef,
+      transaction_id: txRef,
+      created_at: new Date().toISOString(),
+    };
   },
 
-  // Verify subscription after Flutterwave payment.
-  // Backend verifies with Flutterwave (GET /v3/transactions/{id}/verify), checks status === "successful", then creates Subscription.
-  // Requires transaction_id; plan_id is required by backend to create the subscription record.
+  // Verify subscription (How_it_works.md §14) - body: { reference }
   verifySubscription: async (
     transactionId: string,
-    planId?: string,
+    _planId?: string,
   ): Promise<VerifySubscriptionResponse> => {
-    const body: { transaction_id: string; plan_id?: string } = {
-      transaction_id: transactionId,
-    };
-    if (planId) body.plan_id = planId;
-    
-    console.log("[Subscription] Verifying payment with body:", body);
-    console.log("[Subscription] Endpoint:", ENDPOINTS.subscriptions.verify);
-    
-    const response = await apiClient.post(
-      ENDPOINTS.subscriptions.verify,
-      body,
-    );
-    
-    console.log("[Subscription] Verification raw response:", response.data);
-    
-    // Handle nested response structure - backend may wrap response in a 'data' field
-    const responseData = response.data;
-    
-    // If the response is already in the expected format, return it
-    if (responseData.status && (responseData.subscription !== undefined || responseData.message)) {
-      return responseData as VerifySubscriptionResponse;
-    }
-    
-    // If response is nested (e.g., { data: { status, subscription, message } })
-    if (responseData.data && typeof responseData.data === 'object') {
-      const nestedData = responseData.data;
-      return {
-        status: nestedData.status || responseData.status || "error",
-        subscription: nestedData.subscription || null,
-        message: nestedData.message || responseData.message || "Unknown response",
-      };
-    }
-    
-    // Fallback: try to construct a valid response
-    return {
-      status: responseData.status || "error",
-      subscription: responseData.subscription || null,
-      message: responseData.message || "Payment verification completed",
-    };
+    const response = await apiClient.post(ENDPOINTS.subscriptions.verify, {
+      reference: transactionId,
+    });
+    return response.data;
   },
 
   // Get current user's subscription status

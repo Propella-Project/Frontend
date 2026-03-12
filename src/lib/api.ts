@@ -45,15 +45,15 @@ interface UserData {
   date_joined: string;
 }
 
-// List of endpoints that don't require authentication
+// List of endpoints that don't require authentication (paths relative to API_BASE_URL)
 const PUBLIC_ENDPOINTS = [
-  "/api/accounts/register/",
-  "/api/accounts/token/",
-  "/api/accounts/token/refresh/",
-  "/api/accounts/verify-email/",
-  "/api/accounts/resend-code/",
-  "/api/accounts/forgot-password/",
-  "/api/accounts/reset-password/",
+  "/accounts/register/",
+  "/accounts/token/",
+  "/accounts/token/refresh/",
+  "/accounts/verify-email/",
+  "/accounts/resend-code/",
+  "/accounts/forgot-password/",
+  "/accounts/reset-password/",
 ];
 
 function isPublicEndpoint(endpoint: string): boolean {
@@ -145,14 +145,14 @@ async function apiFetch<T>(
 
 // Auth
 export async function login(credentials: { email: string; password: string }) {
-  return apiFetch<LoginResponse>("/api/accounts/token/", {
+  return apiFetch<LoginResponse>("/accounts/token/", {
     method: "POST",
     body: JSON.stringify(credentials),
   });
 }
 
 export async function refreshToken(refresh: string) {
-  return apiFetch<{ access: string }>("/api/accounts/token/refresh/", {
+  return apiFetch<{ access: string }>("/accounts/token/refresh/", {
     method: "POST",
     body: JSON.stringify({ refresh }),
   });
@@ -184,7 +184,7 @@ export async function patchData<T>(endpoint: string, data: unknown) {
 
 // Registration & Verification
 export async function registerUser(data: RegisterData) {
-  return apiFetch("/api/accounts/register/", {
+  return apiFetch("/accounts/register/", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -196,14 +196,14 @@ export function generateReferralCode(): string {
 }
 
 export async function verifyEmail(data: { email: string; code: string }) {
-  return apiFetch("/api/accounts/verify-email/", {
+  return apiFetch("/accounts/verify-email/", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
 export async function resendCode(email: string) {
-  return apiFetch("/api/accounts/resend-code/", {
+  return apiFetch("/accounts/resend-code/", {
     method: "POST",
     body: JSON.stringify({ email }),
   });
@@ -211,31 +211,31 @@ export async function resendCode(email: string) {
 
 // Password Reset
 export async function forgotPassword(email: string) {
-  return apiFetch("/api/accounts/forgot-password/", {
+  return apiFetch("/accounts/forgot-password/", {
     method: "POST",
     body: JSON.stringify({ email }),
   });
 }
 
 export async function resetPassword(data: {
-  uid: string;
+  uid?: string;
   token: string;
   new_password: string;
 }) {
-  return apiFetch(`/api/accounts/reset-password/${data.uid}/${data.token}/`, {
+  return apiFetch("/accounts/reset-password/", {
     method: "POST",
-    body: JSON.stringify({ new_password: data.new_password }),
+    body: JSON.stringify({ token: data.token, new_password: data.new_password }),
   });
 }
 
 // User management (authenticated)
 export async function getAllUsers() {
-  return apiFetch("/api/accounts/all-users/", { method: "POST" }); // POST as you specified
+  return apiFetch("/accounts/all-users/", { method: "GET" });
 }
 
-export async function editUser(userId: number, data: any) {
-  return apiFetch(`/api/accounts/edit-user/${userId}/`, {
-    method: "PATCH",
+export async function editUser(_userId: number, data: any) {
+  return apiFetch("/accounts/edit-user/", {
+    method: "PUT",
     body: JSON.stringify(data),
   });
 }
@@ -255,15 +255,15 @@ export async function getUser() {
 
 // Exam Profile (authenticated)
 export async function createExamProfile(data: ExamProfileData) {
-  return apiFetch("/api/accounts/create-exam-profile/", {
+  return apiFetch("/accounts/create-exam-profile/", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
-export async function editExamProfile(profileId: number, data: any) {
-  return apiFetch(`/api/accounts/edit-exam-profile/${profileId}/`, {
-    method: "PATCH",
+export async function editExamProfile(_profileId: number, data: any) {
+  return apiFetch("/accounts/edit-exam-profile/", {
+    method: "PUT",
     body: JSON.stringify(data),
   });
 }

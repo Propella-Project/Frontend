@@ -28,7 +28,10 @@ export function usePayment(): UsePaymentReturn {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
 
-  const { setUser } = useUserStore();
+  const setUser = useUserStore((s) => s.setUser);
+  const userEmail = useUserStore((s) => s.email);
+  const userNickname = useUserStore((s) => s.nickname);
+  const userUsername = useUserStore((s) => s.username);
   const { setPaymentStatus, setTodayRoadmap } = useAppStore();
 
   // Fetch available subscription plans
@@ -103,13 +106,20 @@ export function usePayment(): UsePaymentReturn {
     setSelectedPlan(plan);
   }, []);
 
-  // Initiate payment - calls backend to get payment link
+  // Initiate payment - client-side Flutterwave Inline (opens modal; redirect to /verify on success)
   const initiatePayment = useCallback(
     async (plan?: SubscriptionPlan): Promise<SubscribeResponse | null> => {
       const targetPlan = plan || selectedPlan;
-      
+
       if (!targetPlan) {
         toast.error("Please select a subscription plan");
+        return null;
+      }
+
+      const email = userEmail ?? "";
+      const name = userNickname || userUsername || "Customer";
+      if (!email) {
+        toast.error("Please complete your profile with an email to subscribe");
         return null;
       }
 
@@ -117,57 +127,23 @@ export function usePayment(): UsePaymentReturn {
       setError(null);
 
       try {
-        // Call backend to initiate subscription and get payment link
-        // Backend handles email/username via Flutterwave
         const response = await subscriptionApi.subscribe({
           plan_id: targetPlan.id,
           payment_method: "flutterwave",
+          amount: targetPlan.amount,
+          currency: targetPlan.currency ?? "NGN",
+          customer: { email, name },
         });
 
-        // Store transaction reference for later verification
-        // Backend returns transaction_id, but we also support transaction_ref for legacy
-        const transactionId = response.transaction_id || response.transaction_ref || "";
-        localStorage.setItem("pending_transaction_id", transactionId);
-        localStorage.setItem("pending_plan_id", targetPlan.id);
-
-        // Redirect to Flutterwave payment page
-        if (response.payment_link) {
-          window.location.href = response.payment_link;
+        if (response.transaction_ref) {
+          localStorage.setItem("pending_transaction_id", response.transaction_ref);
+          localStorage.setItem("pending_plan_id", targetPlan.id);
         }
 
         return response;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to initiate payment";
         setError(errorMessage);
-        
-        // Handle "already has active subscription" - treat as success
-        if (errorMessage.toLowerCase().includes("already have an active subscription")) {
-          console.log("[usePayment] User already has active subscription");
-          setPaymentStatus("paid");
-          setUser({ payment_status: "paid" });
-          
-          // Fetch roadmap
-          try {
-            const todayRoadmap = await roadmapApi.getTodayRoadmap();
-            setTodayRoadmap(todayRoadmap);
-            toast.success("You already have an active subscription!");
-          } catch (roadmapErr) {
-            console.error("[usePayment] Failed to fetch roadmap:", roadmapErr);
-          }
-          
-          return {
-            id: "existing_subscription",
-            status: "success",
-            amount: 0,
-            currency: "NGN",
-            payment_link: "",
-            transaction_ref: "existing",
-            transaction_id: "existing",
-            created_at: new Date().toISOString(),
-          };
-        }
-        
-        // Handle auth error specifically
         if (errorMessage.includes("log in") || errorMessage.includes("authentication")) {
           toast.error("Please log in to subscribe", {
             description: "You'll be redirected to login",
@@ -175,13 +151,12 @@ export function usePayment(): UsePaymentReturn {
         } else {
           toast.error(errorMessage);
         }
-        
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [selectedPlan]
+    [selectedPlan, userEmail, userNickname, userUsername]
   );
 
   // Verify subscription after payment. Pass plan_id so backend can create Subscription (Flutterwave verify checks status === successful).
