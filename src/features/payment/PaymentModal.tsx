@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePayment } from "@/hooks/usePayment";
 import { useUserStore } from "@/state/user.store";
+import { useAuth } from "@/contexts/AuthContext";
 import type { SubscriptionPlan } from "@/api/subscription.api";
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle, Lock, Loader2, Check, Sparkles, Zap, Crown } from "lucide-react";
+import { CheckCircle, Lock, Loader2, Check, Sparkles, Zap, Crown, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useFlutterwave, closePaymentModal, FlutterWaveTypes } from "flutterwave-react-v3";
@@ -46,6 +47,8 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
   const userEmail = useUserStore((s) => s.email);
   const userNickname = useUserStore((s) => s.nickname);
   const userUsername = useUserStore((s) => s.username);
+  const { user: authUser } = useAuth();
+  const email = (userEmail ?? authUser?.email ?? "").trim();
   const [isProcessing, setIsProcessing] = useState(false);
   const [payConfig, setPayConfig] = useState<FlutterwaveConfig>(() => ({
     ...defaultFwConfig,
@@ -85,10 +88,8 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
         return;
       }
 
-      const email = userEmail ?? "";
-      const name = userNickname || userUsername || "Customer";
+      const name = userNickname || userUsername || authUser?.nickname || authUser?.username || "Customer";
       if (!email) {
-        toast.error("Please complete your profile with an email to subscribe");
         return;
       }
       if (!isFlutterwaveConfigured()) {
@@ -110,7 +111,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
         amount: plan.amount,
         currency: (plan.currency as "NGN") ?? "NGN",
         customer: {
-          email,
+          email: email || "",
           name,
           phone_number: "",
         },
@@ -124,7 +125,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
       });
       setTriggerPay(true);
     },
-    [isAuthenticated, userEmail, userNickname, userUsername, selectPlan]
+    [isAuthenticated, email, userNickname, userUsername, authUser, selectPlan]
   );
 
   const handleClose = () => {
@@ -140,6 +141,17 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
     return <Zap className="w-6 h-6 text-[#3B82F6]" />;
   };
 
+  /** Display description; fallback if API sent placeholder text */
+  const getPlanDescription = (plan: SubscriptionPlan) => {
+    const d = (plan.description || "").trim();
+    if (d && !/lorem\s+ipsum/i.test(d)) return d;
+    const name = (plan.name || "").toLowerCase();
+    if (name.includes("smart") || name.includes("monthly")) return "Full access to your personalized study roadmap, AI tutor, and analytics for 30 days.";
+    if (name.includes("quarter")) return "Three months of full access with the best per-day value.";
+    if (name.includes("year") || name.includes("annual")) return "Full access for 12 months with maximum savings.";
+    return "Full access to your personalized roadmap, AI tutor, and performance analytics.";
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="bg-[#1A1A1E] border-[#2A2A2E] text-white max-w-lg max-h-[90vh] overflow-y-auto">
@@ -152,6 +164,15 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
             Select a plan to unlock your personalized study roadmap
           </DialogDescription>
         </DialogHeader>
+
+        {!email && isAuthenticated && (
+          <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-200">
+              Please add your email in Profile settings to subscribe. We need it to send your receipt and subscription details.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-4 mt-4">
           {safePlans.length === 0 ? (
@@ -192,7 +213,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                             </span>
                           </div>
                         </div>
-                        <p className="text-sm text-[#9CA3AF] mb-3">{plan.description}</p>
+                        <p className="text-sm text-[#9CA3AF] mb-3">{getPlanDescription(plan)}</p>
                         <ul className="space-y-1.5">
                           {(plan.features || []).slice(0, 4).map((feature, i) => (
                             <li key={i} className="flex items-center gap-2 text-xs text-[#9CA3AF]">
@@ -203,8 +224,8 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                         </ul>
                         <Button
                           onClick={() => handleSelectPlan(plan)}
-                          disabled={isProcessing}
-                          className="w-full mt-4 bg-[#6D28D9] hover:bg-[#5B21B6] text-white"
+                          disabled={isProcessing || (!email && isAuthenticated)}
+                          className="w-full mt-4 bg-[#6D28D9] hover:bg-[#5B21B6] text-white disabled:opacity-70"
                         >
                           {isProcessing ? (
                             <>

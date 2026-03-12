@@ -209,4 +209,31 @@ export const authApi = {
   isAuthenticated: (): boolean => {
     return !!getAuthTokenFromCookies();
   },
+
+  // Get current user (GET /accounts/me/) - used after login and to restore session
+  getMe: async (): Promise<{
+    id: number;
+    email?: string;
+    username?: string;
+    nickname?: string;
+    first_name?: string;
+    last_name?: string;
+    referral_code?: string;
+    [key: string]: unknown;
+  }> => {
+    const response = await apiClient.get(ENDPOINTS.auth.me);
+    return response.data;
+  },
+
+  // Edit user (How_it_works.md §8) PUT /accounts/edit-user/
+  editUser: async (payload: {
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    nickname?: string;
+    [key: string]: unknown;
+  }): Promise<{ message: string; user: Record<string, unknown> }> => {
+    const response = await apiClient.put(ENDPOINTS.users.editUser, payload);
+    return response.data;
+  },
 };

@@ -234,33 +234,49 @@ function AppInitializer({ children }: { children: ReactNode }) {
         storeUserId: storeState.user_id 
       });
       
-      // Check Zustand store state (which is rehydrated from localStorage)
-      // If store says authenticated, trust it and keep session
-      // If store says not authenticated, clear tokens to prevent issues
+      // If store has authenticated session, keep it and optionally refresh user
       if (storeState.isAuthenticated && storeState.user_id) {
         console.log("[AppInitializer] Store has authenticated session, keeping it");
-        // Refresh user data in background if we have a token
         if (token) {
           const { refreshUserData, fetchReferralStats } = useUserStore.getState();
           refreshUserData().catch(() => {/* silent fail */});
           fetchReferralStats().catch(() => {/* silent fail */});
         }
-      } else {
-        // Store says not authenticated - clear any leftover tokens
-        // This prevents conflicts between localStorage tokens and Zustand state
-        console.log("[AppInitializer] Store shows not authenticated - clearing tokens");
-        if (storeState.isAuthenticated || storeState.user_id) {
-          clearUser();
-        }
-        setAuthenticated(false);
-        
-        // Clear conflicting tokens
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("propella_token");
-        localStorage.removeItem("refresh_token");
-        localStorage.removeItem("propella_user_id");
+        return;
       }
+
+      // If we have tokens but store is not authenticated, try to restore session (e.g. persist was cleared)
+      if (token) {
+        try {
+          const { authApi } = await import("@/api/auth.api");
+          const me = await authApi.getMe();
+          const userData = {
+            user_id: String(me.id),
+            email: me.email,
+            username: me.username,
+            nickname: me.nickname ?? me.username ?? "",
+          };
+          setUser(userData);
+          setAuthenticated(true);
+          localStorage.setItem("propella_user_id", String(me.id));
+          console.log("[AppInitializer] Session restored from token");
+          return;
+        } catch {
+          // Token invalid or expired
+        }
+      }
+
+      // No valid session: clear tokens and ensure store is logged out
+      console.log("[AppInitializer] No authenticated session - clearing tokens");
+      if (storeState.isAuthenticated || storeState.user_id) {
+        clearUser();
+      }
+      setAuthenticated(false);
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("propella_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("propella_user_id");
     } catch (error) {
       console.error("[AppInitializer] Initialization failed:", error);
       setInitError(error instanceof Error ? error : new Error("Initialization failed"));

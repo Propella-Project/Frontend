@@ -32,8 +32,14 @@ export function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await settingsApi.updateProfile(formData);
+      const { user: updatedUser } = await settingsApi.updateProfile(formData);
       await refreshUser();
+      if (updatedUser && typeof updatedUser === "object") {
+        setFormData((prev) => ({
+          ...prev,
+          nickname: (updatedUser.nickname as string) ?? prev.nickname,
+        }));
+      }
       setIsEditing(false);
       toast.success("Profile updated successfully");
     } catch (error) {

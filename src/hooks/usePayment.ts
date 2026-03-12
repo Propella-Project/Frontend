@@ -3,6 +3,7 @@ import { subscriptionApi, type SubscriptionPlan, type SubscribeResponse } from "
 import { roadmapApi } from "@/api/roadmap.api";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { getToken } from "@/api/client";
 
@@ -32,6 +33,7 @@ export function usePayment(): UsePaymentReturn {
   const userEmail = useUserStore((s) => s.email);
   const userNickname = useUserStore((s) => s.nickname);
   const userUsername = useUserStore((s) => s.username);
+  const { user: authUser } = useAuth();
   const { setPaymentStatus, setTodayRoadmap } = useAppStore();
 
   // Fetch available subscription plans
@@ -116,10 +118,10 @@ export function usePayment(): UsePaymentReturn {
         return null;
       }
 
-      const email = userEmail ?? "";
-      const name = userNickname || userUsername || "Customer";
+      const email = (userEmail ?? authUser?.email ?? "").trim();
+      const name = userNickname || userUsername || authUser?.nickname || authUser?.username || "Customer";
       if (!email) {
-        toast.error("Please complete your profile with an email to subscribe");
+        toast.error("Please add your email in Profile settings to subscribe.");
         return null;
       }
 
@@ -156,7 +158,7 @@ export function usePayment(): UsePaymentReturn {
         setLoading(false);
       }
     },
-    [selectedPlan, userEmail, userNickname, userUsername]
+    [selectedPlan, userEmail, userNickname, userUsername, authUser]
   );
 
   // Verify subscription after payment. Pass plan_id so backend can create Subscription (Flutterwave verify checks status === successful).

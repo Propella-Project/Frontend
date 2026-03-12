@@ -1,12 +1,17 @@
-import apiClient from "./client";
-import { ENDPOINTS } from "@/config/endpoints";
+import { authApi } from "./auth.api";
 import type { ProfileUpdatePayload, Notification } from "@/types/api.types";
 
 export const settingsApi = {
-  // Update profile
-  updateProfile: async (payload: ProfileUpdatePayload): Promise<void> => {
-    const response = await apiClient.put(ENDPOINTS.settings.updateProfile, payload);
-    return response.data;
+  // Update profile (How_it_works.md §8: PUT /accounts/edit-user/, returns { message, user })
+  updateProfile: async (
+    payload: ProfileUpdatePayload
+  ): Promise<{ message: string; user: Record<string, unknown> }> => {
+    const body: Record<string, unknown> = {};
+    if (payload.email !== undefined) body.email = payload.email;
+    if (payload.first_name !== undefined) body.first_name = payload.first_name;
+    if (payload.last_name !== undefined) body.last_name = payload.last_name;
+    if (payload.nickname !== undefined) body.nickname = payload.nickname;
+    return authApi.editUser(body);
   },
 
   // Get notifications - DISABLED (endpoint not available)

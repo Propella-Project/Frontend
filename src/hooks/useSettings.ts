@@ -26,11 +26,19 @@ export function useSettings(): UseSettingsReturn {
       setError(null);
 
       try {
-        await settingsApi.updateProfile(updates);
-        
-        // Update local state
-        updateUserProfile(updates);
-        
+        const { user: updatedUser } = await settingsApi.updateProfile(updates);
+
+        if (updatedUser && typeof updatedUser === "object") {
+          updateUserProfile({
+            email: (updatedUser.email as string) ?? undefined,
+            username: (updatedUser.username as string) ?? undefined,
+            nickname: (updatedUser.nickname as string) ?? undefined,
+            ...updates,
+          });
+        } else {
+          updateUserProfile(updates);
+        }
+
         toast.success("Profile updated successfully!");
         return true;
       } catch (err) {
