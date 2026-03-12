@@ -146,14 +146,10 @@ registerMock("roadmap/day/", async () => {
   );
 });
 
-// Quiz handlers
-registerMock("diagnostic-quiz/", async (request) => {
+// Quiz handlers (no dummy questions; return empty for real API usage)
+registerMock("diagnostic-quiz/", async () => {
   await delay(300);
-  const url = new URL(request.url);
-  const subject = url.searchParams.get("subject") || "mathematics";
-  
-  const questions = generateMockQuestions(subject);
-  return new Response(JSON.stringify(questions), {
+  return new Response(JSON.stringify({ questions: [] }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -282,56 +278,3 @@ export function isMockingEnabled(): boolean {
  */
 export const handlers: unknown[] = [];
 
-// Helper function to generate mock questions
-function generateMockQuestions(subject: string): Array<{
-  subject: string;
-  question: string;
-  options: string[];
-  correct_answer: string;
-  allocated_time: number;
-}> {
-  const questionBank: Record<string, Array<{
-    subject: string;
-    question: string;
-    options: string[];
-    correct_answer: string;
-    allocated_time: number;
-  }>> = {
-    mathematics: [
-      {
-        subject: "Mathematics",
-        question: "What is the value of x in 2x + 5 = 15?",
-        options: ["3", "4", "5", "6"],
-        correct_answer: "5",
-        allocated_time: 60,
-      },
-      {
-        subject: "Mathematics",
-        question: "What is the square root of 144?",
-        options: ["10", "11", "12", "13"],
-        correct_answer: "12",
-        allocated_time: 45,
-      },
-    ],
-    english: [
-      {
-        subject: "English",
-        question: "Which word is a synonym for 'happy'?",
-        options: ["Sad", "Joyful", "Angry", "Tired"],
-        correct_answer: "Joyful",
-        allocated_time: 30,
-      },
-    ],
-    physics: [
-      {
-        subject: "Physics",
-        question: "What is the SI unit of force?",
-        options: ["Watt", "Newton", "Joule", "Pascal"],
-        correct_answer: "Newton",
-        allocated_time: 45,
-      },
-    ],
-  };
-  
-  return questionBank[subject.toLowerCase()] || questionBank.mathematics;
-}

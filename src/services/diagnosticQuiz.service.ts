@@ -1,5 +1,4 @@
 import { aiQuizService } from "./aiQuiz.service";
-import { getMixedTemplateQuestions } from "@/data/templateQuestions";
 import { quizApi } from "@/api/quiz.api";
 import type { Subject, Question } from "@/types";
 import { FEATURES } from "@/config/env";
@@ -108,14 +107,10 @@ export async function generateDiagnosticQuiz(
     console.warn("[DiagnosticQuiz] Backend API failed:", error);
   }
 
-  // Fall back to template questions
-  console.log("[DiagnosticQuiz] Using template questions as fallback");
-  const subjectIds = subjects.map(s => s.id);
-  const templateQuestions = getMixedTemplateQuestions(subjectIds, questionsPerSubject);
-  
   return {
-    questions: templateQuestions,
-    source: "template",
+    questions: [],
+    source: "api",
+    error: "Unable to load questions. Please try again.",
   };
 }
 
@@ -145,12 +140,9 @@ export async function generateDiagnosticQuizWithProcessing(
   } catch (error) {
     clearInterval(progressInterval);
     console.error("[DiagnosticQuiz] All sources failed:", error);
-    
-    // Ultimate fallback - return template questions
-    const subjectIds = subjects.map(s => s.id);
     return {
-      questions: getMixedTemplateQuestions(subjectIds, questionsPerSubject),
-      source: "template",
+      questions: [],
+      source: "api",
       error: error instanceof Error ? error.message : "Failed to generate quiz",
     };
   }
