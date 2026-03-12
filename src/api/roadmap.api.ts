@@ -1,7 +1,7 @@
 import apiClient from "./client";
 import { ENDPOINTS } from "@/config/endpoints";
-import type { TodayRoadmapResponse } from "@/types/api.types";
-import type { RoadmapDay, Task } from "@/types";
+import type { TodayRoadmapResponse, RoadmapDay as ApiRoadmapDay } from "@/types/api.types";
+import type { RoadmapDay as InternalRoadmapDay, Task } from "@/types";
 import { roadmapGenerator, type GeneratedRoadmap, type RoadmapInput } from "@/services/roadmapGenerator.service";
 import aiRoadmapService from "@/services/aiRoadmap.service";
 import { FEATURES } from "@/config/env";
@@ -21,7 +21,7 @@ export const roadmapApi = {
       quizCount: input.quizHistory.length,
     });
 
-    let days: RoadmapDay[] = [];
+    let days: InternalRoadmapDay[] = [];
 
     // Try AI Engine first if enabled
     if (FEATURES.ENABLE_AI_ENGINE) {
@@ -107,7 +107,7 @@ export const roadmapApi = {
   },
 
   // Get roadmap for a specific day
-  getRoadmapByDay: async (dayId: string): Promise<RoadmapDay> => {
+  getRoadmapByDay: async (dayId: string): Promise<InternalRoadmapDay> => {
     try {
       const response = await apiClient.get(ENDPOINTS.roadmap.getByDay(dayId));
       // Convert API response to internal format
@@ -142,7 +142,7 @@ export const roadmapApi = {
   },
   
   // Generate full roadmap using AI Engine
-  generateRoadmap: async (): Promise<{ days: RoadmapDay[] }> => {
+  generateRoadmap: async (): Promise<{ days: ApiRoadmapDay[] }> => {
     try {
       // Get user data from localStorage
       const userStr = localStorage.getItem("propella-user-store");
@@ -166,7 +166,7 @@ export const roadmapApi = {
       });
       
       // Convert internal RoadmapDay to API RoadmapDay format
-      const apiDays: RoadmapDay[] = roadmap.days.map(day => convertToApiRoadmapDay(day));
+      const apiDays: ApiRoadmapDay[] = roadmap.days.map(day => convertToApiRoadmapDay(day));
       return { days: apiDays };
     } catch (error) {
       console.error("[Roadmap] Generation failed:", error);
@@ -194,13 +194,14 @@ export const roadmapApi = {
   getToday: async (): Promise<TodayRoadmapResponse> => {
     return roadmapApi.getTodayRoadmap();
   },
-  getFullRoadmap: async (): Promise<{ days: RoadmapDay[] }> => {
+  getFullRoadmap: async (): Promise<{ days: ApiRoadmapDay[] }> => {
     return roadmapApi.generateRoadmap();
   },
 };
 
 // Convert internal RoadmapDay to API format (camelCase -> snake_case)
-function convertToApiRoadmapDay(day: RoadmapDay): Record<string, unknown> {
+function convertToApiRoadmapDay(day: InternalRoadmapDay): ApiRoadmapDay {
+  const progress = Math.round((day.tasks.filter(t => t.status === "completed").length / (day.tasks.length || 1)) * 100) || 0;
   return {
     id: day.id,
     day_number: day.dayNumber,
@@ -217,10 +218,11 @@ function convertToApiRoadmapDay(day: RoadmapDay): Record<string, unknown> {
       topic_id: task.topicId,
       is_completed: task.status === "completed",
     })),
+    progress,
     is_unlocked: day.isUnlocked,
     is_completed: day.isCompleted,
     estimated_hours: day.estimatedHours,
-  };
+  } as ApiRoadmapDay;
 }
 
 // Extended cached roadmap type with days
@@ -276,7 +278,7 @@ function updateLocalTaskStatus(taskId: string, status: string) {
 
 // Transform GeneratedRoadmap day to TodayRoadmapResponse
 function transformGeneratedToTodayResponse(
-  day: RoadmapDay,
+  day: InternalRoadmapDay,
   status: "loading" | "ready" | "error"
 ): TodayRoadmapResponse {
   return {
@@ -302,7 +304,7 @@ function transformGeneratedToTodayResponse(
 }
 
 // Convert API response to internal RoadmapDay
-function convertApiToInternalRoadmapDay(apiDay: Record<string, unknown>): RoadmapDay {
+function convertApiToInternalRoadmapDay(apiDay: Record<string, unknown>): InternalRoadmapDay {
   const tasks = (apiDay.tasks as Record<string, unknown>[] || []).map((t, idx): Task => ({
     id: String(t.id || `task_${idx}`),
     dayId: String(apiDay.id || `day_${apiDay.day_number}`),
@@ -334,11 +336,7 @@ function convertApiToInternalRoadmapDay(apiDay: Record<string, unknown>): Roadma
 }
 
 // Get default exam date (3 months from now)
-function getDefaultExamDate(): string {
-  const date = new Date();
-  date.setMonth(date.getMonth() + 3);
-  return date.toISOString().split("T")[0];
-}
+
 
 // Fallback data
 function getFallbackTodayRoadmap(): TodayRoadmapResponse {
@@ -386,7 +384,7 @@ function getFallbackTodayRoadmap(): TodayRoadmapResponse {
   };
 }
 
-function getFallbackRoadmapDay(dayNumber: number): RoadmapDay {
+function getFallbackRoadmapDay(dayNumber: number): InternalRoadmapDay {
   const subjects = ["Mathematics", "English", "Physics", "Chemistry", "Biology"];
   const subject = subjects[(dayNumber - 1) % subjects.length];
   
@@ -446,10 +444,7 @@ function getFallbackRoadmapDay(dayNumber: number): RoadmapDay {
   };
 }
 
-function getFallbackRoadmapDays(): RoadmapDay[] {
-  // Return empty array - fallback is handled in components
-  return [];
-}
+
 
 // New cache helpers for GeneratedRoadmap format
 const GENERATED_ROADMAP_KEY = "propella_generated_roadmap";
@@ -472,7 +467,7 @@ function getCachedGeneratedRoadmap(): GeneratedRoadmap | null {
     const parsed = JSON.parse(cached);
     return {
       ...parsed,
-      days: parsed.days.map((day: RoadmapDay & { date: string }) => ({
+      days: parsed.days.map((day: InternalRoadmapDay & { date: string }) => ({
         ...day,
         date: new Date(day.date), // Convert string back to Date
       })),
