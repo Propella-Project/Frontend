@@ -82,7 +82,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setStoreUser(updates);
       }
     } catch (err) {
-      console.log("[Auth] Could not sync user from storage:", err);
     }
   };
 

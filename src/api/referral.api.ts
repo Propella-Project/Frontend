@@ -57,9 +57,7 @@ export const referralApi = {
     }
     
     try {
-      console.log("[Referral] Fetching stats from:", ENDPOINTS.referrals.getStats);
       const response = await apiClient.get(ENDPOINTS.referrals.getStats);
-      console.log("[Referral] Raw response:", response.data);
       
       // Validate response structure - backend might return different format
       const data = response.data;
@@ -103,7 +101,6 @@ export const referralApi = {
         referrals: referralsData || [],
       };
       
-      console.log("[Referral] Normalized stats:", normalizedStats);
       return normalizedStats;
     } catch (error) {
       console.warn("[Referral] Failed to fetch stats:", error);

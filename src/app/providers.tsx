@@ -141,7 +141,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     const checkBothHydrated = () => {
       if (userStoreHydrated && mainStoreHydrated) {
-        console.log("[AppInitializer] Both stores rehydrated");
         setHasRehydrated(true);
       }
     };
@@ -150,7 +149,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     const checkUserStore = () => {
       const persist = useUserStore.persist as unknown as { hasHydrated?: () => boolean };
       if (persist.hasHydrated?.()) {
-        console.log("[AppInitializer] User store already hydrated");
         userStoreHydrated = true;
         checkBothHydrated();
         return true;
@@ -162,7 +160,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     const checkMainStore = () => {
       const persist = useStore.persist as unknown as { hasHydrated?: () => boolean };
       if (persist.hasHydrated?.()) {
-        console.log("[AppInitializer] Main store already hydrated");
         mainStoreHydrated = true;
         checkBothHydrated();
         return true;
@@ -180,7 +177,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     if (!userStoreReady) {
       unsubscribeUser = useUserStore.persist.onFinishHydration(() => {
-        console.log("[AppInitializer] User store rehydrated");
         userStoreHydrated = true;
         checkBothHydrated();
       });
@@ -188,7 +184,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     if (!mainStoreReady) {
       unsubscribeMain = useStore.persist.onFinishHydration(() => {
-        console.log("[AppInitializer] Main store rehydrated");
         mainStoreHydrated = true;
         checkBothHydrated();
       });
@@ -196,7 +191,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     // Fallback timeout in case hydration events don't fire
     const timeout = setTimeout(() => {
-      console.log("[AppInitializer] Hydration timeout - forcing continue");
       setHasRehydrated(true);
     }, 2000);
     
@@ -218,21 +212,13 @@ function AppInitializer({ children }: { children: ReactNode }) {
       // Check if user has valid token (cookie 24h is source of truth; getToken() returns null when cookie missing)
       const { getToken } = await import("@/api/client");
       const token = getToken();
-      const userId = localStorage.getItem("propella_user_id");
-      
+
       // Get current store state (which should have rehydrated)
       const storeState = useUserStore.getState();
       
-      console.log("[AppInitializer] Checking session:", { 
-        hasToken: !!token, 
-        hasUserId: !!userId, 
-        storeAuth: storeState.isAuthenticated,
-        storeUserId: storeState.user_id 
-      });
       
       // If store has authenticated session, keep it and optionally refresh user
       if (storeState.isAuthenticated && storeState.user_id) {
-        console.log("[AppInitializer] Store has authenticated session, keeping it");
         if (token) {
           const { refreshUserData, fetchReferralStats } = useUserStore.getState();
           refreshUserData().catch(() => {/* silent fail */});
@@ -259,14 +245,12 @@ function AppInitializer({ children }: { children: ReactNode }) {
           localStorage.setItem("propella_user_id", String(stored.id));
           const savedTutor = loadPersistedTutor();
           if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
-          console.log("[AppInitializer] Session restored from stored user");
           return;
         }
         authApi.clearUserStorage();
       }
 
       // No valid session (no token or stored user expired): clear everything including cookies
-      console.log("[AppInitializer] No authenticated session - clearing tokens and storage");
       if (storeState.isAuthenticated || storeState.user_id) {
         clearUser();
       }

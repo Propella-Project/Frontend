@@ -10,7 +10,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import apiClient from "@/api/client";
 import { ENDPOINTS } from "@/config/endpoints";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 import { toast } from "sonner";

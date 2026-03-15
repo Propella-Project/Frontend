@@ -213,91 +213,50 @@ export const aiEngineApi = {
   generateQuiz: async (
     request: QuizGenerateRequest
   ): Promise<QuizGenerateResponse> => {
-    console.log("[AI Engine] Generating quiz:", JSON.stringify(request, null, 2));
     try {
       const response = await aiEngineClient.post<QuizGenerateResponse>(
         "/quiz/generate",
         request
       );
       
-      // Validate response structure
       const data = response.data;
-      console.log("[AI Engine] Raw quiz response:", JSON.stringify(data, null, 2));
-      console.log("[AI Engine] Response type:", typeof data);
-      console.log("[AI Engine] Response keys:", Object.keys(data || {}));
-      
-      // Handle different response formats
       let questions: QuizQuestion[] = [];
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rawData = data as any;
       
       if (Array.isArray(rawData)) {
-        // Response is directly an array of questions
-        console.log("[AI Engine] Response is array with", rawData.length, "items");
         questions = rawData;
       } else if (rawData.questions && Array.isArray(rawData.questions)) {
-        // Response has questions property
-        console.log("[AI Engine] Response has questions array with", rawData.questions.length, "items");
         questions = rawData.questions;
       } else if (rawData.data && Array.isArray(rawData.data)) {
-        // Response is nested under data property
-        console.log("[AI Engine] Response has nested data array with", rawData.data.length, "items");
         questions = rawData.data;
       } else if (rawData.data && rawData.data.questions && Array.isArray(rawData.data.questions)) {
-        // Response is deeply nested: data.questions
-        console.log("[AI Engine] Response has deeply nested data.questions array with", rawData.data.questions.length, "items");
         questions = rawData.data.questions;
       } else {
-        console.error("[AI Engine] Unexpected response format:", rawData);
-        console.error("[AI Engine] Expected array or object with questions/data property");
         throw new Error("Invalid response format from AI Engine");
       }
       
-      // Filter out null/undefined entries first
       questions = questions.filter(q => q != null);
       
       if (questions.length === 0) {
-        console.error("[AI Engine] Questions array is empty after filtering nulls");
         throw new Error("No valid questions in AI Engine response");
       }
       
-      // Validate each question has required fields (with lenient validation)
-      const validQuestions = questions.filter((q, idx) => {
-        // Handle both snake_case and camelCase field names
+      const validQuestions = questions.filter((q) => {
         const questionText = q.question || (q as unknown as Record<string, string>).question_text;
         const hasQuestion = questionText && typeof questionText === 'string' && questionText.trim() !== '';
         const hasOptions = Array.isArray(q.options) && q.options.length >= 2;
         const hasCorrectAnswer = q.correct_answer !== undefined && q.correct_answer !== null && q.correct_answer !== '';
-        
-        if (!hasQuestion) {
-          console.warn(`[AI Engine] Question ${idx} missing valid question text:`, q);
-        }
-        if (!hasOptions) {
-          console.warn(`[AI Engine] Question ${idx} missing valid options:`, q);
-        }
-        if (!hasCorrectAnswer) {
-          console.warn(`[AI Engine] Question ${idx} missing correct_answer:`, q);
-        }
-        
         return hasQuestion && hasOptions && hasCorrectAnswer;
       });
       
-      console.log(`[AI Engine] Valid questions: ${validQuestions.length}/${questions.length}`);
-      
       if (validQuestions.length === 0) {
-        console.error("[AI Engine] All questions failed validation. Sample raw question:", questions[0]);
-        console.error("[AI Engine] Question keys:", Object.keys(questions[0] || {}));
         throw new Error("No valid questions in AI Engine response");
       }
       
       return { questions: validQuestions };
     } catch (error) {
-      const axiosError = error as AxiosError;
-      console.error("[AI Engine] Quiz generation failed:", axiosError.message);
-      if (axiosError.response?.status === 422) {
-        console.error("[AI Engine] Validation error:", JSON.stringify(axiosError.response?.data, null, 2));
-      }
       throw error;
     }
   },
@@ -365,24 +324,13 @@ export const aiEngineApi = {
         mastery_score: Number(request.mastery_score),
       };
       
-      console.log("[AI Engine] Sending progress update:", JSON.stringify(payload, null, 2));
-      
       const response = await aiEngineClient.post<{ message: string }>(
         "/progress/update",
         payload
       );
       return response.data;
     } catch (error) {
-      const axiosError = error as AxiosError;
-      if (axiosError.response?.status === 422) {
-        console.warn("[AI Engine] Progress update validation error:", 
-          JSON.stringify(axiosError.response?.data, null, 2));
-      } else if (axiosError.response?.status === 500) {
-        console.warn("[AI Engine] Progress update server error - student may not exist in AI Engine");
-      } else {
-        console.warn("[AI Engine] Progress update failed:", axiosError.message);
-      }
-      throw error; // Re-throw so caller can handle
+      throw error;
     }
   },
 
@@ -394,16 +342,9 @@ export const aiEngineApi = {
       const encodedStudentId = encodeURIComponent(String(studentId));
       const encodedSubject = encodeURIComponent(String(subject));
       const url = `/progress/${encodedStudentId}/${encodedSubject}`;
-      
-      console.log("[AI Engine] Fetching progress:", url);
-      
       const response = await aiEngineClient.get<ProgressResponse>(url);
       return response.data;
     } catch (error) {
-      const axiosError = error as AxiosError;
-      if (axiosError.response?.status === 500) {
-        console.warn(`[AI Engine] Student "${studentId}" may not be registered in AI Engine`);
-      }
       throw error;
     }
   },

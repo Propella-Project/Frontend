@@ -35,18 +35,25 @@ export function Login() {
         data?: {
           access: string;
           refresh: string;
-          user?: { id: number; email: string; username?: string };
+          user?: { id: number; email: string; username?: string; nickname?: string };
           onboarding?: boolean;
         };
         access?: string;
         refresh?: string;
+        user?: { id: number; email: string; username?: string; nickname?: string };
         onboarding?: boolean;
       };
       const payload = body?.data ?? body;
-      const access = payload.access;
-      const refresh = payload.refresh;
-      const userFromApi = payload.user;
-      const onboardingComplete = payload.onboarding ?? (body as { onboarding?: boolean }).onboarding ?? false;
+      const access = (payload?.access ?? body?.access) as string | undefined;
+      const refresh = (payload?.refresh ?? body?.refresh) as string | undefined;
+      const userFromApi = payload?.user ?? body?.user;
+      const onboardingComplete = payload?.onboarding ?? (body as { onboarding?: boolean }).onboarding ?? false;
+
+      if (!access || !refresh) {
+        toast.error("Invalid login response");
+        setIsLoading(false);
+        return;
+      }
 
       // Access token in cookie only – 24h expiry; when cookie expires, user is redirected to login
       setCookie("access_token", access, 1);
@@ -56,7 +63,6 @@ export function Login() {
       localStorage.setItem("propella_refresh_token", refresh);
       localStorage.setItem("refresh_token", refresh);
       authApi.setRefreshToken(refresh);
-      // Sync token to localStorage for same-origin reads (getToken() prefers cookie; cookie expiry = 24h)
       authApi.setToken(access);
 
       if (userFromApi) {

@@ -41,7 +41,6 @@ export function usePayment(): UsePaymentReturn {
     // Only fetch if user is authenticated
     const token = getToken();
     if (!token) {
-      console.log("[Payment] Skipping plans fetch - no auth token");
       // Use fallback plans
       const fallbackPlans: SubscriptionPlan[] = [
         {
@@ -169,12 +168,10 @@ export function usePayment(): UsePaymentReturn {
 
       const effectivePlanId = planId ?? localStorage.getItem("pending_plan_id") ?? undefined;
       
-      console.log("[usePayment] Verifying subscription:", { transactionRef, effectivePlanId });
 
       try {
         const response = await subscriptionApi.verifySubscription(transactionRef, effectivePlanId);
         
-        console.log("[usePayment] Verification response:", response);
 
         // Check for success - handle various response formats
         // Backend may return: { status: "success", subscription: {...} } or { status: "successful", subscription: {...} }
@@ -189,12 +186,9 @@ export function usePayment(): UsePaymentReturn {
 
           // Fetch today's roadmap to unlock it
           try {
-            console.log("[usePayment] Fetching today's roadmap...");
             const todayRoadmap = await roadmapApi.getTodayRoadmap();
             setTodayRoadmap(todayRoadmap);
-            console.log("[usePayment] Roadmap fetched successfully:", todayRoadmap);
           } catch (roadmapErr) {
-            console.error("[usePayment] Failed to fetch roadmap:", roadmapErr);
           }
 
           localStorage.removeItem("pending_transaction_id");
@@ -206,12 +200,6 @@ export function usePayment(): UsePaymentReturn {
           return true;
         } else {
           // Log the failure reason
-          console.error("[usePayment] Verification failed:", {
-            status: response.status,
-            hasSubscription: !!response.subscription,
-            message: response.message,
-          });
-          
           const msg = typeof response.message === 'object' && response.message !== null 
             ? (response.message as {message?: string; code?: string}).message || (response.message as {message?: string; code?: string}).code 
             : response.message;
@@ -220,7 +208,6 @@ export function usePayment(): UsePaymentReturn {
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to verify subscription";
-        console.error("[usePayment] Verification error:", err);
         setError(errorMessage);
         toast.error(errorMessage);
         return false;
@@ -253,8 +240,8 @@ export function usePayment(): UsePaymentReturn {
  * Hook to check if user has paid and has active subscription
  */
 export function usePaymentStatus() {
-  const { payment_status, setUser } = useUserStore();
-  const { paymentStatus, setPaymentStatus, setTodayRoadmap } = useAppStore();
+  useUserStore();
+  useAppStore();
   const [isLoading, setIsLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<{
     hasActive: boolean;
@@ -266,7 +253,6 @@ export function usePaymentStatus() {
     // Only check if user is authenticated
     const token = getToken();
     if (!token) {
-      console.log("[Payment] Skipping subscription check - no auth token");
       return false;
     }
     
@@ -279,7 +265,6 @@ export function usePaymentStatus() {
       });
       return status.has_active_subscription;
     } catch (err) {
-      console.error("Failed to check subscription status:", err);
       setSubscriptionStatus({ hasActive: false, daysRemaining: 0 });
       return false;
     } finally {

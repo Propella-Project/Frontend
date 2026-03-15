@@ -239,7 +239,6 @@ export async function getUser() {
   // return apiFetch<UserData>("/api/accounts/user/", {
   //   method: "GET",
   // });
-  console.log("[API] getUser disabled - endpoint not available");
   return {
     success: true,
     data: undefined,

@@ -103,11 +103,9 @@ export const subscriptionApi = {
     // Check if user is authenticated
     const token = getToken();
     if (!token) {
-      console.log("[Subscription] No auth token, throwing auth error");
       throw new Error("Authentication required");
     }
     
-    console.log("[Subscription] Fetching plans from:", ENDPOINTS.subscriptions.plans);
     const response = await apiClient.get<RawSubscriptionPlan[]>(ENDPOINTS.subscriptions.plans);
     
     // Transform raw backend response to frontend format

@@ -420,14 +420,7 @@ export const useStore = create<AppState>()(
             roadmap: generatedRoadmap.days, 
             isGeneratingRoadmap: false 
           });
-          
-          console.log("[Store] Roadmap generated successfully:", {
-            days: generatedRoadmap.days.length,
-            weakTopics: generatedRoadmap.metadata.weakTopics,
-            strongTopics: generatedRoadmap.metadata.strongTopics,
-          });
         } catch (error) {
-          console.error("[Store] Roadmap generation failed:", error);
           set({
             isGeneratingRoadmap: false,
             generationError: "Failed to generate roadmap",
@@ -663,7 +656,6 @@ export const useStore = create<AppState>()(
 
         // If this is a diagnostic quiz, regenerate the roadmap with actual results
         if (currentQuiz.type === "diagnostic" && selectedSubjects.length > 0) {
-          console.log("[Store] Diagnostic quiz completed - regenerating roadmap with results");
           try {
             await get().generateRoadmapWithAI();
             toast.success("Your personalized roadmap has been updated based on your quiz results!");
@@ -880,8 +872,8 @@ export const useStore = create<AppState>()(
   ),
 );
 
-// Helper function to generate questions
-function generateQuestions(
+// Helper to generate questions from templates (exported for potential future use; template fallback removed from startQuiz)
+export function generateQuestions(
   subject: Subject,
   topicId: string | null,
   count: number,
