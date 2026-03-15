@@ -61,48 +61,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, user_id, nickname, username, storeEmail]);
 
-  // Try to fetch user data from backend and sync to store (JWT: send Bearer token)
+  // Sync user from storage to store (no /accounts/me – server endpoint not used; 24h expiry in storage)
   const refreshUser = async (): Promise<void> => {
     try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("access_token") ||
-            localStorage.getItem("propella_token") ||
-            localStorage.getItem("auth_token")
-          : null;
-      const response = await fetch(`${ENV.API_BASE_URL}/accounts/me/`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        const updates: Parameters<typeof setStoreUser>[0] = {};
-        if (userData?.id != null) updates.user_id = String(userData.id);
-        if (userData?.email != null) updates.email = userData.email;
-        if (userData?.username != null) updates.username = userData.username;
-        if (userData?.nickname != null) updates.nickname = userData.nickname;
-        if (Object.keys(updates).length > 0) setStoreUser(updates);
-      } else if (response.status === 401) {
-        console.log("[Auth] Session expired");
+      const { authApi } = await import("@/api/auth.api");
+      const stored = authApi.getStoredUser();
+      if (stored) {
+        setUser({
+          id: String(stored.id),
+          email: stored.email,
+          username: stored.username,
+          nickname: stored.nickname ?? stored.username ?? "",
+        });
+        const updates: Parameters<typeof setStoreUser>[0] = {
+          user_id: String(stored.id),
+          email: stored.email,
+          username: stored.username,
+          nickname: stored.nickname ?? stored.username ?? "",
+        };
+        setStoreUser(updates);
       }
     } catch (err) {
-      console.log("[Auth] Could not fetch user data:", err);
     }
   };
 
-  // Logout
+  // Logout – clear store and auth storage (tokens + user; 24h data removed)
   const logout = async (): Promise<void> => {
     try {
-      await fetch(`${ENV.API_BASE_URL}/accounts/logout/`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const { authApi } = await import("@/api/auth.api");
+      await authApi.logout();
     } catch (err) {
       console.error("[Auth] Logout failed:", err);
     } finally {
@@ -123,12 +110,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+const defaultAuthValue: AuthContextType = {
+  user: null,
+  isLoading: false,
+  isAuthenticated: false,
+  logout: async () => {},
+  refreshUser: async () => {},
+};
+
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  return context === undefined ? defaultAuthValue : context;
 }
 
 export default AuthContext;

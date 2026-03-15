@@ -76,7 +76,6 @@ export function VerifyPage() {
           setMessage("Payment successful! Your subscription is now active.");
           setDetail("You have full access to your personalized study roadmap.");
           toast.success("Payment verified! Roadmap unlocked!");
-          localStorage.setItem("propella_payment_verified", "true");
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
           setStatus("error");

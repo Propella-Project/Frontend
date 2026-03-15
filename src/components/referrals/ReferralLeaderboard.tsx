@@ -4,18 +4,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUserStore } from "@/state/user.store";
 import type { LeaderboardEntry } from "@/types/referral";
 
-// Mock leaderboard data (replace with API call later)
-const mockLeaderboard: LeaderboardEntry[] = [
-  { rank: 1, id: "1", nickname: "Alex", referralPoints: 120, totalReferrals: 120, isCurrentUser: false },
-  { rank: 2, id: "2", nickname: "Sarah", referralPoints: 95, totalReferrals: 95, isCurrentUser: false },
-  { rank: 3, id: "3", nickname: "David", referralPoints: 70, totalReferrals: 70, isCurrentUser: false },
-  { rank: 4, id: "4", nickname: "Emma", referralPoints: 58, totalReferrals: 58, isCurrentUser: false },
-  { rank: 5, id: "5", nickname: "James", referralPoints: 45, totalReferrals: 45, isCurrentUser: false },
-  { rank: 6, id: "6", nickname: "Lisa", referralPoints: 38, totalReferrals: 38, isCurrentUser: false },
-  { rank: 7, id: "7", nickname: "Michael", referralPoints: 32, totalReferrals: 32, isCurrentUser: false },
-  { rank: 8, id: "8", nickname: "Anna", referralPoints: 28, totalReferrals: 28, isCurrentUser: false },
-];
-
 const getRankIcon = (rank: number) => {
   switch (rank) {
     case 1:
@@ -59,15 +47,7 @@ export function ReferralLeaderboard() {
     isCurrentUser: true,
   };
 
-  // Combine and sort leaderboard
-  const allEntries = [...mockLeaderboard];
-  
-  // Only add user if they have referrals
-  if (totalReferrals > 0) {
-    allEntries.push(currentUserEntry);
-  }
-  
-  // Sort by points descending
+  const allEntries = totalReferrals > 0 ? [currentUserEntry] : [];
   const sortedLeaderboard = allEntries
     .sort((a, b) => b.referralPoints - a.referralPoints)
     .map((entry, index) => ({ ...entry, rank: index + 1 }))

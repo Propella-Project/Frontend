@@ -14,15 +14,49 @@ import {
   History,
   Award,
   Loader2,
+  Lock,
+  Crown,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { aiQuizService } from '@/services/aiQuiz.service';
 import { toast } from 'sonner';
+import { usePaymentStatus } from '@/hooks/usePayment';
+import { PaymentModal } from '@/features/payment/PaymentModal';
 
 export function QuestionCatalog() {
   const { subjects, quizHistory, startQuiz, user, gamification } = useStore();
+  const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMarathonLoading, setIsMarathonLoading] = useState(false);
+
+  if (!isPaid && !isCheckingPayment) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] p-4 pb-24 flex flex-col items-center justify-center">
+        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 max-w-md text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#6D28D9]/20 border border-[#6D28D9]/40 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-[#CCFF00]" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Practice Locked</h2>
+          <p className="text-[#9CA3AF] text-sm mb-6">
+            Complete payment to unlock practice quizzes and past questions.
+          </p>
+          <Button
+            onClick={() => setShowPaymentModal(true)}
+            className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
+          >
+            <Crown className="w-4 h-4 mr-2" />
+            Unlock Full Access
+          </Button>
+        </Card>
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={() => setShowPaymentModal(false)}
+        />
+      </div>
+    );
+  }
 
   const handleStartPractice = (subjectId: string) => {
     startQuiz(subjectId, null, 'daily');
@@ -54,14 +88,12 @@ export function QuestionCatalog() {
       }
 
       // Generate 50 AI-powered questions
-      console.log("[QuestionCatalog] Starting marathon question generation...");
       const questions = await aiQuizService.generateMarathonAIQuestions(
         userSubjects,
         50,
         "medium"
       );
 
-      console.log(`[QuestionCatalog] Generated ${questions.length} questions`);
 
       if (questions.length === 0) {
         toast.error("Failed to generate questions. Please try again.");

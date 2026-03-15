@@ -28,7 +28,6 @@ function convertAiQuestionToAppQuestion(
       const letterIndex = letterToIndex[normalizedCorrectAnswer];
       if (letterIndex < aiQuestion.options.length) {
         correctAnswerIndex = letterIndex;
-        console.log(`[AI Quiz] Mapped letter '${correctAnswer}' to index ${letterIndex}`);
       }
     }
   }
@@ -38,13 +37,11 @@ function convertAiQuestionToAppQuestion(
     const numericIndex = parseInt(correctAnswer, 10);
     if (!isNaN(numericIndex) && numericIndex >= 0 && numericIndex < aiQuestion.options.length) {
       correctAnswerIndex = numericIndex;
-      console.log(`[AI Quiz] Mapped numeric '${correctAnswer}' to index ${numericIndex}`);
     }
   }
   
   // Log warning if we couldn't find the correct answer
   if (correctAnswerIndex === -1) {
-    console.warn(`[AI Quiz] Could not map correct_answer '${aiQuestion.correct_answer}' to any option. Options:`, aiQuestion.options);
     // Default to 0 only as last resort, but this indicates a data issue
     correctAnswerIndex = 0;
   }
@@ -76,7 +73,6 @@ export async function generateAIQuestions(
     : null;
 
   if (!FEATURES.ENABLE_AI_ENGINE) {
-    console.log("[AI Quiz] AI Engine disabled");
     return [];
   }
 
@@ -86,7 +82,6 @@ export async function generateAIQuestions(
     const cleanSubject = subject.name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
     // AI Engine requires topic - use first topic or subject name as fallback
     const topicName = topic?.name || subject.topics[0]?.name || "General";
-    console.log(`[AI Quiz] Requesting ${count} questions for subject: "${cleanSubject}", topic: "${topicName}"`);
     
     const response = await aiEngineApi.generateQuiz({
       subjects: [cleanSubject],  // subjects must be an array
@@ -122,21 +117,18 @@ export async function generateMixedAIQuestions(
   const cappedQuestionsPerSubject = Math.min(questionsPerSubject, MAX_PER_REQUEST);
   
   if (questionsPerSubject > MAX_PER_REQUEST) {
-    console.warn(`[AI Quiz] Requested ${questionsPerSubject} questions per subject, but AI Engine max is ${MAX_PER_REQUEST}. Capping.`);
   }
 
   // Generate questions for each subject in parallel
   const promises = subjects.map(async (subject, subjectIndex) => {
     try {
       if (!FEATURES.ENABLE_AI_ENGINE) {
-        console.log(`[AI Quiz] AI Engine disabled for ${subject.name}`);
         return [];
       }
       
       // Clean subject name and get topic (required by AI Engine)
       const cleanSubject = subject.name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
       const topicName = subject.topics[0]?.name || "General";
-      console.log(`[AI Quiz] Requesting ${cappedQuestionsPerSubject} questions for: "${cleanSubject}" / "${topicName}"`);
       
       const response = await aiEngineApi.generateQuiz({
         subjects: [cleanSubject],  // subjects must be an array
@@ -181,8 +173,6 @@ export async function generateMarathonAIQuestions(
   const MAX_PER_REQUEST = 20;
   const questionsPerSubject = Math.ceil(totalQuestions / subjects.length);
   
-  console.log(`[Marathon] Starting generation: ${totalQuestions} total, ${questionsPerSubject} per subject, ${subjects.length} subjects`);
-  
   const allQuestions: Question[] = [];
   let failedBatches = 0;
   
@@ -191,27 +181,20 @@ export async function generateMarathonAIQuestions(
     if (allQuestions.length >= totalQuestions) break;
     
     let subjectQuestionsNeeded = Math.min(questionsPerSubject, totalQuestions - allQuestions.length);
-    console.log(`[Marathon] Subject ${subject.name}: need ${subjectQuestionsNeeded} questions`);
-    
     while (subjectQuestionsNeeded > 0) {
       const batchSize = Math.min(subjectQuestionsNeeded, MAX_PER_REQUEST);
       
       if (!FEATURES.ENABLE_AI_ENGINE) {
-        console.log(`[Marathon] AI Engine disabled for ${subject.name}`);
         break;
       }
       
       try {
-        console.log(`[Marathon] Generating batch of ${batchSize} for ${subject.name}...`);
-        
         const response = await aiEngineApi.generateQuiz({
           subjects: [subject.name],  // subjects must be an array
           topic: subject.topics[0]?.name || "General",
           difficulty,
           number_of_questions: batchSize,
         });
-
-        console.log(`[Marathon] Got ${response.questions.length} questions for ${subject.name}`);
 
         const convertedQuestions = response.questions.map((q, idx) => {
           // Find correct answer index - handle both string (option text/letter) and number formats
@@ -247,7 +230,6 @@ export async function generateMarathonAIQuestions(
           
           // Log warning and default to 0 only if we couldn't determine the correct answer
           if (correctIndex === -1) {
-            console.warn(`[Marathon] Correct answer "${q.correct_answer}" not found in options:`, q.options);
             correctIndex = 0;
           }
           
@@ -267,22 +249,17 @@ export async function generateMarathonAIQuestions(
 
         allQuestions.push(...convertedQuestions);
         subjectQuestionsNeeded -= batchSize;
-        
-        console.log(`[Marathon] Progress: ${allQuestions.length}/${totalQuestions} questions`);
-        
+
         // Small delay between batches to avoid rate limiting
         if (subjectQuestionsNeeded > 0) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
-      } catch (error) {
-        console.error(`[Marathon] Failed to generate batch for ${subject.name}:`, error);
+      } catch {
         failedBatches++;
         // Continue with next batch; no dummy fallback
       }
     }
   }
-
-  console.log(`[Marathon] Complete: ${allQuestions.length} questions generated (${failedBatches} failed batches)`);
 
   // Shuffle and limit to exact count
   const shuffled = allQuestions.sort(() => Math.random() - 0.5);

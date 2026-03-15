@@ -8,6 +8,7 @@ import { captureReferralData } from "@/utils/referral";
 import { useDailyRoadmapNotification } from "@/state/notification.store";
 // import { useNotifications } from "@/hooks/useSettings";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { initMocks } from "@/mocks";
@@ -140,7 +141,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     const checkBothHydrated = () => {
       if (userStoreHydrated && mainStoreHydrated) {
-        console.log("[AppInitializer] Both stores rehydrated");
         setHasRehydrated(true);
       }
     };
@@ -149,7 +149,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     const checkUserStore = () => {
       const persist = useUserStore.persist as unknown as { hasHydrated?: () => boolean };
       if (persist.hasHydrated?.()) {
-        console.log("[AppInitializer] User store already hydrated");
         userStoreHydrated = true;
         checkBothHydrated();
         return true;
@@ -161,7 +160,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     const checkMainStore = () => {
       const persist = useStore.persist as unknown as { hasHydrated?: () => boolean };
       if (persist.hasHydrated?.()) {
-        console.log("[AppInitializer] Main store already hydrated");
         mainStoreHydrated = true;
         checkBothHydrated();
         return true;
@@ -179,7 +177,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     if (!userStoreReady) {
       unsubscribeUser = useUserStore.persist.onFinishHydration(() => {
-        console.log("[AppInitializer] User store rehydrated");
         userStoreHydrated = true;
         checkBothHydrated();
       });
@@ -187,7 +184,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     if (!mainStoreReady) {
       unsubscribeMain = useStore.persist.onFinishHydration(() => {
-        console.log("[AppInitializer] Main store rehydrated");
         mainStoreHydrated = true;
         checkBothHydrated();
       });
@@ -195,7 +191,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
     
     // Fallback timeout in case hydration events don't fire
     const timeout = setTimeout(() => {
-      console.log("[AppInitializer] Hydration timeout - forcing continue");
       setHasRehydrated(true);
     }, 2000);
     
@@ -211,72 +206,62 @@ function AppInitializer({ children }: { children: ReactNode }) {
     if (!hasRehydrated) return;
     
     try {
-      // Capture referral data from URL on app load
+      // Capture referral from URL into sessionStorage only (no localStorage before login)
       captureReferralData();
-      
-      // Load and sync persisted AI Tutor
-      const savedTutor = loadPersistedTutor();
-      if (savedTutor) {
-        updateProfile({ ai_tutor_selected: savedTutor });
-      }
-      
-      // Check if user has valid tokens
-      const token = localStorage.getItem("access_token") || localStorage.getItem("auth_token") || localStorage.getItem("propella_token");
-      const userId = localStorage.getItem("propella_user_id");
-      
+
+      // Check if user has valid token (cookie 24h is source of truth; getToken() returns null when cookie missing)
+      const { getToken } = await import("@/api/client");
+      const token = getToken();
+
       // Get current store state (which should have rehydrated)
       const storeState = useUserStore.getState();
       
-      console.log("[AppInitializer] Checking session:", { 
-        hasToken: !!token, 
-        hasUserId: !!userId, 
-        storeAuth: storeState.isAuthenticated,
-        storeUserId: storeState.user_id 
-      });
       
       // If store has authenticated session, keep it and optionally refresh user
       if (storeState.isAuthenticated && storeState.user_id) {
-        console.log("[AppInitializer] Store has authenticated session, keeping it");
         if (token) {
           const { refreshUserData, fetchReferralStats } = useUserStore.getState();
           refreshUserData().catch(() => {/* silent fail */});
           fetchReferralStats().catch(() => {/* silent fail */});
         }
+        const savedTutor = loadPersistedTutor();
+        if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
         return;
       }
 
-      // If we have tokens but store is not authenticated, try to restore session (e.g. persist was cleared)
+      // If we have tokens, try to restore session from stored user (no /accounts/me call; 24h expiry)
       if (token) {
-        try {
-          const { authApi } = await import("@/api/auth.api");
-          const me = await authApi.getMe();
+        const { authApi } = await import("@/api/auth.api");
+        const stored = authApi.getStoredUser();
+        if (stored) {
           const userData = {
-            user_id: String(me.id),
-            email: me.email,
-            username: me.username,
-            nickname: me.nickname ?? me.username ?? "",
+            user_id: String(stored.id),
+            email: stored.email,
+            username: stored.username,
+            nickname: stored.nickname ?? stored.username ?? "",
           };
           setUser(userData);
           setAuthenticated(true);
-          localStorage.setItem("propella_user_id", String(me.id));
-          console.log("[AppInitializer] Session restored from token");
+          localStorage.setItem("propella_user_id", String(stored.id));
+          const savedTutor = loadPersistedTutor();
+          if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
           return;
-        } catch {
-          // Token invalid or expired
         }
+        authApi.clearUserStorage();
       }
 
-      // No valid session: clear tokens and ensure store is logged out
-      console.log("[AppInitializer] No authenticated session - clearing tokens");
+      // No valid session (no token or stored user expired): clear everything including cookies
       if (storeState.isAuthenticated || storeState.user_id) {
         clearUser();
       }
       setAuthenticated(false);
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("propella_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("propella_user_id");
+      try {
+        const { authApi } = await import("@/api/auth.api");
+        authApi.clearUserStorage();
+        authApi.logout();
+      } catch {
+        // ignore
+      }
     } catch (error) {
       console.error("[AppInitializer] Initialization failed:", error);
       setInitError(error instanceof Error ? error : new Error("Initialization failed"));
@@ -355,8 +340,9 @@ export function Providers({ children }: ProvidersProps) {
     >
       <MswProvider>
         <AppInitializer>
-          <NotificationInitializer>
-            {children}
+          <AuthProvider>
+            <NotificationInitializer>
+              {children}
             <Toaster 
               position="top-center"
               toastOptions={{
@@ -367,7 +353,8 @@ export function Providers({ children }: ProvidersProps) {
                 },
               }}
             />
-          </NotificationInitializer>
+            </NotificationInitializer>
+          </AuthProvider>
         </AppInitializer>
       </MswProvider>
     </ErrorBoundary>

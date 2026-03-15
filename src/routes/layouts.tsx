@@ -13,6 +13,7 @@ import { OnboardingFlow } from "@/sections/OnboardingFlow";
 import { BottomNav } from "@/components/BottomNav";
 import { PaymentCallback } from "@/features/payment/PaymentCallback";
 import { VerifyPage } from "@/features/payment/VerifyPage";
+import { PaymentsVerifyPage } from "@/features/payment/PaymentsVerifyPage";
 
 /**
  * Auth Layout - Minimal layout for auth pages (login, forgot-password, reset-password)
@@ -95,12 +96,25 @@ export function PaymentCallbackLayout() {
 }
 
 /**
- * Verify Layout - Payment verification page at /verify (Flutterwave redirect_url)
+ * Verify Layout - Payment verification page at /verify (legacy Flutterwave redirect_url)
  */
 export function VerifyLayout() {
   return (
     <div className="min-h-screen bg-[#0A0A0C] text-[#F3F4F6]">
       <VerifyPage />
+      <Toaster />
+    </div>
+  );
+}
+
+/**
+ * Payments Verify Layout - Flutterwave callback at /payments/verify
+ * Reads reference from query, POSTs to /api/accounts/verify-subscription/
+ */
+export function PaymentsVerifyLayout() {
+  return (
+    <div className="min-h-screen bg-[#0A0A0C] text-[#F3F4F6]">
+      <PaymentsVerifyPage />
       <Toaster />
     </div>
   );

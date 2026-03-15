@@ -82,6 +82,7 @@ interface AppState {
   // Onboarding Actions
   setUser: (user: Partial<User>) => void;
   setSelectedSubjects: (subjects: Subject[]) => void;
+  setOnboardingComplete: (complete: boolean) => void;
   completeOnboarding: () => void;
   resumeOnboarding: () => void;
   completeDiagnosticQuiz: (results: AppState["diagnosticResults"]) => void;
@@ -204,6 +205,13 @@ export const useStore = create<AppState>()(
 
       setSelectedSubjects: (subjects) => {
         set({ selectedSubjects: subjects });
+      },
+
+      setOnboardingComplete: (complete) => {
+        set({
+          isOnboardingComplete: complete,
+          ...(complete && { currentPage: "dashboard" as const }),
+        });
       },
 
       completeOnboarding: () => {
@@ -412,14 +420,7 @@ export const useStore = create<AppState>()(
             roadmap: generatedRoadmap.days, 
             isGeneratingRoadmap: false 
           });
-          
-          console.log("[Store] Roadmap generated successfully:", {
-            days: generatedRoadmap.days.length,
-            weakTopics: generatedRoadmap.metadata.weakTopics,
-            strongTopics: generatedRoadmap.metadata.strongTopics,
-          });
         } catch (error) {
-          console.error("[Store] Roadmap generation failed:", error);
           set({
             isGeneratingRoadmap: false,
             generationError: "Failed to generate roadmap",
@@ -463,78 +464,18 @@ export const useStore = create<AppState>()(
         set({ isGeneratingQuiz: true, generationError: null });
 
         try {
-          // Try AI-powered quiz generation first
           if (FEATURES.ENABLE_AI_ENGINE) {
             await startQuizWithAI(subjectId, topicId, type, subjectIds);
             return;
           }
         } catch (error) {
-          console.warn("AI quiz generation failed, using fallback:", error);
+          console.warn("AI quiz generation failed:", error);
         }
 
-        // Fallback: Use template-based generation
-        const { subjects } = get();
-        let questions: Question[] = [];
-
-        // For diagnostic quiz with multiple subjects
-        if (type === "diagnostic" && subjectIds && subjectIds.length > 0) {
-          const questionsPerSubject = Math.floor(12 / subjectIds.length);
-
-          subjectIds.forEach((sid) => {
-            const subject = subjects.find((s) => s.id === sid);
-            if (subject) {
-              const subjectQuestions = generateQuestions(
-                subject,
-                null,
-                questionsPerSubject,
-              );
-              questions = [...questions, ...subjectQuestions];
-            }
-          });
-
-          // Add more questions from first subject if needed
-          while (questions.length < 12) {
-            const subject = subjects.find((s) => s.id === subjectIds[0]);
-            if (subject) {
-              const additionalQuestions = generateQuestions(subject, null, 1);
-              questions = [...questions, ...additionalQuestions];
-            } else {
-              break;
-            }
-          }
-
-          questions = questions.slice(0, 12);
-        } else {
-          // Single subject quiz
-          const subject = subjects.find((s) => s.id === subjectId);
-          if (!subject) {
-            set({ isGeneratingQuiz: false });
-            return;
-          }
-
-          questions = generateQuestions(
-            subject,
-            topicId,
-            type === "diagnostic" ? 5 : 10,
-          );
-        }
-
-        const quiz: Quiz = {
-          id: `quiz_${Date.now()}`,
-          userId: get().user?.id || "user_1",
-          subjectId: subjectIds ? subjectIds[0] : subjectId,
-          topicId,
-          questions,
-          answers: [],
-          score: 0,
-          totalQuestions: questions.length,
-          timeTaken: 0,
-          completed: false,
-          createdAt: new Date(),
-          type,
-        };
-
-        set({ currentQuiz: quiz, currentPage: "quiz", isGeneratingQuiz: false });
+        set({
+          isGeneratingQuiz: false,
+          generationError: "Unable to generate questions. Please try again.",
+        });
       },
 
       startQuizWithAI: async (subjectId, topicId, type, subjectIds) => {
@@ -715,7 +656,6 @@ export const useStore = create<AppState>()(
 
         // If this is a diagnostic quiz, regenerate the roadmap with actual results
         if (currentQuiz.type === "diagnostic" && selectedSubjects.length > 0) {
-          console.log("[Store] Diagnostic quiz completed - regenerating roadmap with results");
           try {
             await get().generateRoadmapWithAI();
             toast.success("Your personalized roadmap has been updated based on your quiz results!");
@@ -932,8 +872,8 @@ export const useStore = create<AppState>()(
   ),
 );
 
-// Helper function to generate questions
-function generateQuestions(
+// Helper to generate questions from templates (exported for potential future use; template fallback removed from startQuiz)
+export function generateQuestions(
   subject: Subject,
   topicId: string | null,
   count: number,

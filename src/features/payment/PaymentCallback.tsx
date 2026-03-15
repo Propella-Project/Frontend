@@ -23,13 +23,6 @@ export function PaymentCallback({ onComplete }: PaymentCallbackProps) {
       const txRef = urlParams.get("tx_ref");
       const statusParam = urlParams.get("status");
 
-      console.log("[Payment Callback] URL params:", {
-        transaction_id: transactionId,
-        tx_ref: txRef,
-        status: statusParam,
-        fullUrl: window.location.href,
-      });
-
       // If cancelled
       if (statusParam === "cancelled") {
         setStatus("error");

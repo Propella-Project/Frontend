@@ -28,7 +28,6 @@ export const settingsApi = {
     //   `${ENDPOINTS.settings.notifications}${notificationId}/read/`
     // );
     // return response.data;
-    console.log("[Notifications] markAsRead disabled - endpoint not available");
     return Promise.resolve();
   },
 };

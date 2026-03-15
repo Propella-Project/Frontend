@@ -14,7 +14,7 @@ export const ENDPOINTS = {
   // Authentication (JWT)
   // Auth (How_it_works.md §1–6, 15–16)
   auth: {
-    login: `/accounts/token/`,
+    login: `/accounts/login/`,
     refresh: `/accounts/token/refresh/`,
     me: `/accounts/me/`,
     register: `/accounts/register/`,
@@ -49,6 +49,8 @@ export const ENDPOINTS = {
     paymentConfig: `/accounts/payment-config/`,
     subscribe: `/accounts/subscribe/`,
     verify: `/accounts/verify-subscription/`,
+    /** GET: returns { has_active_subscription, subscription?, days_remaining? }; used to gate Roadmap/Tutor/Practice */
+    status: `/accounts/subscription-status/`,
   },
 
   // Onboarding

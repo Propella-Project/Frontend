@@ -14,6 +14,7 @@ const OnboardingLayout = lazy(() => import("@/routes/layouts").then((m) => ({ de
 const MainLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.MainLayout })));
 const PaymentCallbackLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.PaymentCallbackLayout })));
 const VerifyLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.VerifyLayout })));
+const PaymentsVerifyLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.PaymentsVerifyLayout })));
 
 // Page Components – lazy loaded
 const Login = lazy(() => import("@/sections/Login").then((m) => ({ default: m.Login })));
@@ -77,8 +78,9 @@ function App() {
         />
 
         {/* ============================================================
-            PAYMENT VERIFY (Public - Flutterwave redirect_url target)
+            PAYMENT VERIFY (Public - Flutterwave callback; reference from query, POST verify-subscription)
             ============================================================ */}
+        <Route path="/payments/verify" element={<PaymentsVerifyLayout />} />
         <Route path="/verify" element={<VerifyLayout />} />
 
         {/* ============================================================
