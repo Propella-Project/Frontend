@@ -49,6 +49,8 @@ export const ENDPOINTS = {
     paymentConfig: `/accounts/payment-config/`,
     subscribe: `/accounts/subscribe/`,
     verify: `/accounts/verify-subscription/`,
+    /** GET: returns { has_active_subscription, subscription?, days_remaining? }; used to gate Roadmap/Tutor/Practice */
+    status: `/accounts/subscription-status/`,
   },
 
   // Onboarding

@@ -164,94 +164,38 @@ export const subscriptionApi = {
     return response.data;
   },
 
-  // Get current user's subscription status
-  // Checks localStorage first, then tries to verify with backend
+  // Get current user's subscription status from backend only (no local verification storage)
   getSubscriptionStatus: async (): Promise<UserSubscriptionStatus> => {
-    // Check if user is authenticated
     const token = getToken();
     if (!token) {
-      console.log("[Subscription] No auth token for status check");
       return {
         has_active_subscription: false,
         subscription: null,
         days_remaining: 0,
       };
     }
-    
-    // Check localStorage for payment confirmation first
-    const paymentVerified = localStorage.getItem("propella_payment_verified");
-    const pendingId = localStorage.getItem("pending_transaction_id");
-    
-    if (paymentVerified === "true") {
-      console.log("[Subscription] Payment verified in localStorage");
+    try {
+      const response = await apiClient.get<{
+        has_active_subscription?: boolean;
+        subscription?: SubscriptionResponse | null;
+        days_remaining?: number;
+        expires_at?: string;
+      }>(ENDPOINTS.subscriptions.status);
+      const data = response.data;
+      const hasActive = !!data?.has_active_subscription;
       return {
-        has_active_subscription: true,
-        subscription: {
-          id: "local",
-          user_id: "",
-          plan_id: "",
-          status: "active",
-          start_date: new Date().toISOString(),
-          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date().toISOString(),
-        },
-        days_remaining: 30,
+        has_active_subscription: hasActive,
+        subscription: data?.subscription ?? null,
+        days_remaining: data?.days_remaining ?? 0,
+        expires_at: data?.expires_at,
+      };
+    } catch {
+      return {
+        has_active_subscription: false,
+        subscription: null,
+        days_remaining: 0,
       };
     }
-    
-    // Try to verify any pending transaction
-    if (pendingId) {
-      try {
-        const pendingPlanId = localStorage.getItem("pending_plan_id");
-        const verifyResult = await subscriptionApi.verifySubscription(pendingId, pendingPlanId ?? undefined);
-        if ((verifyResult.status === "success" || verifyResult.status === "successful") && verifyResult.subscription) {
-          console.log("[Subscription] Verified via pending transaction");
-          const sub = verifyResult.subscription;
-          return {
-            has_active_subscription: true,
-            subscription: {
-              id: sub.id,
-              user_id: sub.user_id,
-              plan_id: sub.plan_id,
-              status: sub.status,
-              start_date: sub.start_date,
-              end_date: sub.end_date,
-              created_at: new Date().toISOString(),
-            },
-            days_remaining: 30, // Calculate from dates if available
-          };
-        }
-      } catch (err) {
-        console.log("[Subscription] Pending transaction verification failed:", err);
-      }
-    }
-    
-    // Check if user profile indicates paid status
-    // This is a workaround until a dedicated endpoint is available
-    try {
-      // Try to access the plans endpoint - if it works, user is authenticated
-      // This indirectly tells us the user is logged in
-      await subscriptionApi.getPlans();
-      
-      // If we get here, user is authenticated
-      // Check if there's any indication of subscription in local state
-      const storedStatus = localStorage.getItem("propella_subscription_status");
-      if (storedStatus) {
-        const parsed = JSON.parse(storedStatus);
-        if (parsed.has_active_subscription) {
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.log("[Subscription] Could not verify subscription status:", err);
-    }
-    
-    console.log("[Subscription] No active subscription found");
-    return {
-      has_active_subscription: false,
-      subscription: null,
-      days_remaining: 0,
-    };
   },
 
   // Cancel subscription

@@ -185,14 +185,7 @@ export function usePayment(): UsePaymentReturn {
         if (isSuccess) {
           setPaymentStatus("paid");
           setUser({ payment_status: "paid" });
-          
-          // Store subscription status in localStorage
-          localStorage.setItem("propella_payment_verified", "true");
-          localStorage.setItem("propella_subscription_status", JSON.stringify({
-            has_active_subscription: true,
-            subscription: response.subscription,
-            days_remaining: 30,
-          }));
+          // Do not store verification locally; access is determined by subscription-status API
 
           // Fetch today's roadmap to unlock it
           try {
@@ -287,63 +280,20 @@ export function usePaymentStatus() {
       return status.has_active_subscription;
     } catch (err) {
       console.error("Failed to check subscription status:", err);
-      // Fallback to local state
-      const isPaid = payment_status === "paid" && paymentStatus === "paid";
-      setSubscriptionStatus({ hasActive: isPaid, daysRemaining: isPaid ? 30 : 0 });
-      return isPaid;
+      setSubscriptionStatus({ hasActive: false, daysRemaining: 0 });
+      return false;
     } finally {
       setIsLoading(false);
     }
-  }, [payment_status, paymentStatus]);
+  }, []);
 
-  // Check for pending/verified transaction on mount (for payment callback)
+  // Run subscription check on mount so isPaid is set from API
   useEffect(() => {
-    const pendingId = localStorage.getItem("pending_transaction_id");
-    const verified = localStorage.getItem("propella_payment_verified");
-    
-    // If payment was just verified, update state immediately
-    if (verified === "true") {
-      console.log("[PaymentStatus] Payment was verified, updating state");
-      setPaymentStatus("paid");
-      setUser({ payment_status: "paid" });
-      localStorage.removeItem("propella_payment_verified");
-      
-      // Fetch roadmap
-      roadmapApi.getTodayRoadmap().then((roadmap) => {
-        setTodayRoadmap(roadmap);
-      }).catch((err) => {
-        console.error("[PaymentStatus] Failed to fetch roadmap:", err);
-      });
-      
-      return;
-    }
-    
-    // Check pending transaction (include plan_id for backend verify_subscription)
-    const pendingPlanId = localStorage.getItem("pending_plan_id");
-    if (pendingId) {
-      subscriptionApi.verifySubscription(pendingId, pendingPlanId ?? undefined).then((response) => {
-        // Handle both "success" and "successful" status from backend
-        if ((response.status === "success" || response.status === "successful") && response.subscription) {
-          console.log("[PaymentStatus] Pending transaction verified");
-          setPaymentStatus("paid");
-          setUser({ payment_status: "paid" });
-          localStorage.removeItem("pending_transaction_id");
-          localStorage.removeItem("pending_plan_id");
-          roadmapApi.getTodayRoadmap().then((roadmap) => {
-            setTodayRoadmap(roadmap);
-          }).catch((err) => {
-            console.error("[PaymentStatus] Failed to fetch roadmap:", err);
-          });
-          checkSubscriptionStatus();
-        }
-      }).catch((err) => {
-        console.error("[PaymentStatus] Failed to verify pending transaction:", err);
-      });
-    }
-  }, [checkSubscriptionStatus, setPaymentStatus, setUser, setTodayRoadmap]);
+    if (getToken()) checkSubscriptionStatus();
+  }, [checkSubscriptionStatus]);
 
-  // Use the most restrictive status
-  const isPaid = payment_status === "paid" && paymentStatus === "paid";
+  // Subscription access from API only (no local verification storage)
+  const isPaid = subscriptionStatus.hasActive;
 
   return {
     isPaid,

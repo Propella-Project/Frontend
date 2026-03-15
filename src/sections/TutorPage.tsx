@@ -24,10 +24,15 @@ import type { ChatMessage } from '@/types';
 import { toast } from 'sonner';
 import { useAIVoicePlayer } from '@/services/aiVoicePlayer';
 import { tutorApi } from '@/api/tutor.api';
+import { usePaymentStatus } from '@/hooks/usePayment';
+import { PaymentModal } from '@/features/payment/PaymentModal';
+import { Lock, Crown } from 'lucide-react';
 
 export function TutorPage() {
   const { user, chatMessages, addMessage, subjects, addAssignment } = useStore();
   const { ai_voice_enabled } = useUserStore();
+  const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(ai_voice_enabled);
@@ -37,6 +42,34 @@ export function TutorPage() {
   const voicePlayer = useAIVoicePlayer();
 
   if (!user) return null;
+
+  if (!isPaid && !isCheckingPayment) {
+    return (
+      <div className="min-h-screen bg-[#0F0F11] p-4 pb-24 flex flex-col items-center justify-center">
+        <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-8 max-w-md text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#6D28D9]/20 border border-[#6D28D9]/40 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-[#CCFF00]" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Tutor Locked</h2>
+          <p className="text-[#9CA3AF] text-sm mb-6">
+            Complete payment to unlock the AI tutor and start learning.
+          </p>
+          <Button
+            onClick={() => setShowPaymentModal(true)}
+            className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
+          >
+            <Crown className="w-4 h-4 mr-2" />
+            Unlock Full Access
+          </Button>
+        </Card>
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={() => setShowPaymentModal(false)}
+        />
+      </div>
+    );
+  }
 
   const personality = PERSONALITIES[user.personality];
 
