@@ -20,18 +20,16 @@ export async function initMocks(): Promise<void> {
   // Prevent double initialization
   if (initialized) return;
   
-  // Check if mocks should be enabled
+  // Only enable mocks when explicitly requested (?msw=true); no demo data by default
   const urlParams = new URLSearchParams(window.location.search);
-  // ENABLE MOCK BY DEFAULT for demo - remove 'true' to disable
-  const enableMsw = urlParams.get("msw") === "true" || import.meta.env.DEV || true;
-  
+  const enableMsw = urlParams.get("msw") === "true";
+
   if (!enableMsw) {
-    console.log("[Mock] Mocking disabled. Use ?msw=true to enable.");
     return;
   }
-  
-  // Check if user wants to use real API
-  const useRealApi = localStorage.getItem("propella_use_real_api") === "true";
+
+  // Allow opting out via query or localStorage (only read after ?msw=true)
+  const useRealApi = typeof window !== "undefined" && localStorage.getItem("propella_use_real_api") === "true";
   if (useRealApi) {
     console.log("[Mock] Using real API. Set propella_use_real_api=false to use mocks.");
     return;

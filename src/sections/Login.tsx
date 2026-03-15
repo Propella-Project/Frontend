@@ -11,6 +11,7 @@ import { setCookie } from "@/lib/cookies";
 import { RocketLogo } from "@/components/logo/RocketLogo";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUserStore } from "@/state/user.store";
+import { useStore } from "@/store";
 
 export function Login() {
   const navigate = useNavigate();
@@ -30,57 +31,87 @@ export function Login() {
     const result = await login({ email, password });
     
     if (result.success && result.data) {
-      const access = result.data.access;
-      const refresh = result.data.refresh;
+      const body = result.data as {
+        data?: {
+          access: string;
+          refresh: string;
+          user?: { id: number; email: string; username?: string };
+          onboarding?: boolean;
+        };
+        access?: string;
+        refresh?: string;
+        onboarding?: boolean;
+      };
+      const payload = body?.data ?? body;
+      const access = payload.access;
+      const refresh = payload.refresh;
+      const userFromApi = payload.user;
+      const onboardingComplete = payload.onboarding ?? (body as { onboarding?: boolean }).onboarding ?? false;
 
-      // Store tokens in all names used by the app (How_it_works.md §4: access + refresh)
-      localStorage.setItem("propella_token", access);
-      localStorage.setItem("access_token", access);
-      localStorage.setItem("auth_token", access);
-      localStorage.setItem("propella_refresh_token", refresh);
-      localStorage.setItem("refresh_token", refresh);
-
-      authApi.setToken(access);
-      authApi.setRefreshToken(refresh);
-
-      // Cookies for cross-subdomain (e.g. dashboard.propella.ng)
-      setCookie("auth_token", access, 7);
-      setCookie("access_token", access, 7);
+      // Access token in cookie only – 24h expiry; when cookie expires, user is redirected to login
+      setCookie("access_token", access, 1);
+      setCookie("auth_token", access, 1);
       setCookie("refresh_token", refresh, 7);
 
-      // Fetch current user and persist in store (so login state survives reload)
-      try {
-        const me = await authApi.getMe();
+      localStorage.setItem("propella_refresh_token", refresh);
+      localStorage.setItem("refresh_token", refresh);
+      authApi.setRefreshToken(refresh);
+      // Sync token to localStorage for same-origin reads (getToken() prefers cookie; cookie expiry = 24h)
+      authApi.setToken(access);
+
+      if (userFromApi) {
+        const userFromServer = userFromApi as Record<string, unknown>;
+        const emailVal = (userFromApi.email ?? email) as string;
+        const nicknameVal = (userFromServer.nickname as string) ?? (userFromApi.username as string) ?? email.split("@")[0];
         const userData = {
-          user_id: String(me.id),
-          email: me.email ?? email,
-          username: me.username ?? undefined,
-          nickname: me.nickname ?? me.username ?? email.split("@")[0],
+          user_id: String(userFromApi.id),
+          email: emailVal,
+          username: (userFromServer.username ?? userFromApi.username) as string | undefined,
+          nickname: nicknameVal,
         };
         setUser(userData);
-        localStorage.setItem("propella_user_id", String(me.id));
-      } catch (err) {
-        console.warn("[Login] getMe failed, using form email:", err);
-        setUser({ email, nickname: email.split("@")[0] });
+        localStorage.setItem("propella_user_id", String(userFromApi.id));
+        authApi.saveUserAfterLogin({ id: userFromApi.id, email: emailVal, ...userFromServer });
+      } else {
+        try {
+          const me = await authApi.getMe();
+          if (me) {
+            const userData = {
+              user_id: String(me.id),
+              email: me.email ?? email,
+              username: me.username ?? undefined,
+              nickname: me.nickname ?? me.username ?? email.split("@")[0],
+            };
+            setUser(userData);
+            localStorage.setItem("propella_user_id", String(me.id));
+            authApi.saveUserAfterLogin({ id: me.id, email: me.email, username: me.username, nickname: me.nickname });
+          } else {
+            setUser({ email, nickname: email.split("@")[0] });
+          }
+        } catch (err) {
+          console.warn("[Login] getMe failed, using form email:", err);
+          setUser({ email, nickname: email.split("@")[0] });
+        }
       }
 
       setAuthenticated(true);
-      
+
+      if (onboardingComplete) {
+        useStore.getState().setOnboardingComplete(true);
+      }
+
       toast.success("Login successful!");
       setIsLoading(false);
-      
-      // Check if there's a return URL (for payment callbacks, etc)
-      const returnTo = location.state?.returnTo || 
-                       sessionStorage.getItem("return_after_login") ||
-                       "/dashboard";
-      
-      // Clear the stored return URL
+
+      const returnTo =
+        onboardingComplete
+          ? "/dashboard"
+          : (location.state?.returnTo ||
+             sessionStorage.getItem("return_after_login") ||
+             "/onboarding");
+
       sessionStorage.removeItem("return_after_login");
-      
-      console.log("[Login] Navigating to:", returnTo);
-      
-      // Longer delay to ensure Zustand state is persisted and propagated
-      // This prevents the redirect loop caused by race conditions
+
       setTimeout(() => {
         navigate(returnTo, { replace: true });
       }, 500);

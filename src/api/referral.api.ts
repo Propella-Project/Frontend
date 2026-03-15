@@ -43,12 +43,11 @@ export const referralApi = {
     // Check if user is authenticated
     const token = getToken();
     if (!token) {
-      console.log("[Referral] No auth token, returning fallback data");
       return {
         user: {
           id: "",
           nickname: "",
-          referral_code: generateFallbackCode(),
+          referral_code: "",
           referral_points: 0,
           total_referrals: 0,
           estimated_earnings: 0,
@@ -81,25 +80,22 @@ export const referralApi = {
         };
       }
       
-      // If still no user data, create fallback
       if (!userData) {
-        console.warn("[Referral] Invalid response structure, using fallback");
         userData = {
           id: "",
           nickname: "",
-          referral_code: generateFallbackCode(),
+          referral_code: "",
           referral_points: 0,
           total_referrals: 0,
           estimated_earnings: 0,
         };
       }
-      
-      // Ensure all required fields exist
+
       const normalizedStats: ReferralStats = {
         user: {
           id: userData.id || "",
           nickname: userData.nickname || "",
-          referral_code: userData.referral_code || generateFallbackCode(),
+          referral_code: userData.referral_code || "",
           referral_points: userData.referral_points ?? 0,
           total_referrals: userData.total_referrals ?? 0,
           estimated_earnings: userData.estimated_earnings ?? (userData.referral_points ?? 0) * 3,
@@ -111,12 +107,11 @@ export const referralApi = {
       return normalizedStats;
     } catch (error) {
       console.warn("[Referral] Failed to fetch stats:", error);
-      // Return fallback data
       return {
         user: {
           id: "",
           nickname: "",
-          referral_code: generateFallbackCode(),
+          referral_code: "",
           referral_points: 0,
           total_referrals: 0,
           estimated_earnings: 0,
@@ -181,12 +176,5 @@ export const referralApi = {
     }
   },
 };
-
-// Generate a fallback referral code
-function generateFallbackCode(): string {
-  const prefix = "PROP";
-  const suffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `${prefix}${suffix}`;
-}
 
 export default referralApi;

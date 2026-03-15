@@ -100,41 +100,6 @@ export function TutorPage() {
     }
   }, []);
 
-  const generateAIResponse = (userMessage: string): string => {
-    const lowerMsg = userMessage.toLowerCase();
-
-    // Check for subject-related queries
-    for (const subject of subjects) {
-      if (lowerMsg.includes(subject.name.toLowerCase()) || lowerMsg.includes(subject.code.toLowerCase())) {
-        const encouragement = personality.encouragement[Math.floor(Math.random() * personality.encouragement.length)];
-        return `${encouragement}\n\n${subject.name} is a fascinating subject! I can help you with:\n• Past questions and explanations\n• Topic breakdowns\n• Study strategies\n• Quick revision notes\n\nWhat specific topic in ${subject.name} would you like to explore?`;
-      }
-    }
-
-    // Check for help/what can you do
-    if (lowerMsg.includes('help') || lowerMsg.includes('what can you do')) {
-      return `Here's what I can do for you:\n\n🎯 **Explain Topics** - Break down complex concepts\n📚 **Past Questions** - Practice with JAMB-style questions\n🎵 **Sing Explanations** - Learn through music\n🃏 **Flashcards** - Quick revision cards\n📊 **Diagrams** - Visual explanations\n💪 **Challenges** - Test your knowledge\n\nJust ask me anything!`;
-    }
-
-    // Check for quiz/practice requests
-    if (lowerMsg.includes('quiz') || lowerMsg.includes('practice') || lowerMsg.includes('question')) {
-      const challenge = personality.challenge[Math.floor(Math.random() * personality.challenge.length)];
-      return `${challenge}\n\nI can generate practice questions for any topic. Which subject would you like to practice?\n\n${subjects.map((s, i) => `${i + 1}. ${s.name}`).join('\n')}`;
-    }
-
-    // Default response with personality
-    const responses = [
-      `That's an interesting question! Let me break it down for you...`,
-      `Great question! Here's what you need to know:`,
-      `I'm glad you asked! Let me explain:`,
-    ];
-    
-    const humor = personality.humor[Math.floor(Math.random() * personality.humor.length)];
-    const metaphor = personality.metaphors[Math.floor(Math.random() * personality.metaphors.length)];
-    
-    return `${responses[Math.floor(Math.random() * responses.length)]}\n\n${metaphor}\n\nKeep those questions coming - learning is a journey, and I'm here to guide you every step of the way!\n\n*${humor}*`;
-  };
-
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -180,17 +145,7 @@ export function TutorPage() {
       }
     } catch (error) {
       console.error("[Tutor] AI request failed:", error);
-      // Fallback to template response if AI fails
-      const fallbackMessage: ChatMessage = {
-        id: `msg_${Date.now() + 1}`,
-        userId: user.id || 'user_1',
-        role: 'ai',
-        content: generateAIResponse(input),
-        timestamp: new Date(),
-        type: 'text',
-      };
-      addMessage(fallbackMessage);
-      toast.error("AI service temporarily unavailable. Using offline mode.");
+      toast.error("AI service temporarily unavailable. Please try again.");
     } finally {
       setIsTyping(false);
     }

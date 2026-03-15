@@ -48,18 +48,17 @@ export function deleteCookie(name: string, domain: string = ".propella.ng"): voi
 }
 
 /**
- * Get auth token from cookies or localStorage
- * Checks cookies first (for cross-subdomain), then localStorage
+ * Get auth token (cookie with 24h expiry is source of truth; when missing, return null)
  */
 export function getAuthToken(): string | null {
-  // Try cookies first (set by landing page with Domain=.propella.ng)
-  const cookieToken = getCookie("access_token");
+  const cookieToken = getCookie("access_token") || getCookie("auth_token");
   if (cookieToken) return cookieToken;
-  
-  // Fallback to localStorage
-  return localStorage.getItem("access_token") || 
-         localStorage.getItem("auth_token") ||
-         localStorage.getItem("propella_token");
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("propella_token");
+  }
+  return null;
 }
 
 /**

@@ -82,6 +82,7 @@ interface AppState {
   // Onboarding Actions
   setUser: (user: Partial<User>) => void;
   setSelectedSubjects: (subjects: Subject[]) => void;
+  setOnboardingComplete: (complete: boolean) => void;
   completeOnboarding: () => void;
   resumeOnboarding: () => void;
   completeDiagnosticQuiz: (results: AppState["diagnosticResults"]) => void;
@@ -204,6 +205,13 @@ export const useStore = create<AppState>()(
 
       setSelectedSubjects: (subjects) => {
         set({ selectedSubjects: subjects });
+      },
+
+      setOnboardingComplete: (complete) => {
+        set({
+          isOnboardingComplete: complete,
+          ...(complete && { currentPage: "dashboard" as const }),
+        });
       },
 
       completeOnboarding: () => {
@@ -463,78 +471,18 @@ export const useStore = create<AppState>()(
         set({ isGeneratingQuiz: true, generationError: null });
 
         try {
-          // Try AI-powered quiz generation first
           if (FEATURES.ENABLE_AI_ENGINE) {
             await startQuizWithAI(subjectId, topicId, type, subjectIds);
             return;
           }
         } catch (error) {
-          console.warn("AI quiz generation failed, using fallback:", error);
+          console.warn("AI quiz generation failed:", error);
         }
 
-        // Fallback: Use template-based generation
-        const { subjects } = get();
-        let questions: Question[] = [];
-
-        // For diagnostic quiz with multiple subjects
-        if (type === "diagnostic" && subjectIds && subjectIds.length > 0) {
-          const questionsPerSubject = Math.floor(12 / subjectIds.length);
-
-          subjectIds.forEach((sid) => {
-            const subject = subjects.find((s) => s.id === sid);
-            if (subject) {
-              const subjectQuestions = generateQuestions(
-                subject,
-                null,
-                questionsPerSubject,
-              );
-              questions = [...questions, ...subjectQuestions];
-            }
-          });
-
-          // Add more questions from first subject if needed
-          while (questions.length < 12) {
-            const subject = subjects.find((s) => s.id === subjectIds[0]);
-            if (subject) {
-              const additionalQuestions = generateQuestions(subject, null, 1);
-              questions = [...questions, ...additionalQuestions];
-            } else {
-              break;
-            }
-          }
-
-          questions = questions.slice(0, 12);
-        } else {
-          // Single subject quiz
-          const subject = subjects.find((s) => s.id === subjectId);
-          if (!subject) {
-            set({ isGeneratingQuiz: false });
-            return;
-          }
-
-          questions = generateQuestions(
-            subject,
-            topicId,
-            type === "diagnostic" ? 5 : 10,
-          );
-        }
-
-        const quiz: Quiz = {
-          id: `quiz_${Date.now()}`,
-          userId: get().user?.id || "user_1",
-          subjectId: subjectIds ? subjectIds[0] : subjectId,
-          topicId,
-          questions,
-          answers: [],
-          score: 0,
-          totalQuestions: questions.length,
-          timeTaken: 0,
-          completed: false,
-          createdAt: new Date(),
-          type,
-        };
-
-        set({ currentQuiz: quiz, currentPage: "quiz", isGeneratingQuiz: false });
+        set({
+          isGeneratingQuiz: false,
+          generationError: "Unable to generate questions. Please try again.",
+        });
       },
 
       startQuizWithAI: async (subjectId, topicId, type, subjectIds) => {
