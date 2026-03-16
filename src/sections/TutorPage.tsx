@@ -40,13 +40,41 @@ export function TutorPage() {
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const voicePlayer = useAIVoicePlayer();
+  const hasAddedGreeting = useRef(false);
+
+  // All hooks must run before any conditional return (React rules of hooks / error #310)
+  useEffect(() => {
+    return () => {
+      voicePlayer?.stop?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // Initial greeting once when paid, user exists, no messages yet
+  const personalityForGreeting =
+    user &&
+    ((user.personality && PERSONALITIES[user.personality as PersonalityType]) || PERSONALITIES.mentor);
+  useEffect(() => {
+    if (!user || !isPaid || !personalityForGreeting || hasAddedGreeting.current || chatMessages.length > 0) return;
+    hasAddedGreeting.current = true;
+    const greeting: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      userId: user.id || 'user_1',
+      role: 'ai',
+      content: `${personalityForGreeting.greeting}\n\nI'm here to help you master your JAMB subjects. What would you like to learn about today?`,
+      timestamp: new Date(),
+      type: 'text',
+    };
+    addMessage(greeting);
+  }, [user, isPaid, personalityForGreeting, chatMessages.length, addMessage]);
 
   if (!user) return null;
 
-  // Safe personality fallback so header/greeting never throw
   const personality =
-    (user.personality && PERSONALITIES[user.personality as PersonalityType]) ||
-    PERSONALITIES.mentor;
+    (user.personality && PERSONALITIES[user.personality as PersonalityType]) || PERSONALITIES.mentor;
 
   if (!isPaid && !isCheckingPayment) {
     return (
@@ -100,37 +128,6 @@ export function TutorPage() {
       });
     }
   };
-
-  // Cleanup speech on unmount
-  useEffect(() => {
-    return () => {
-      voicePlayer?.stop?.();
-    };
-  }, []);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [chatMessages]);
-
-  // Initial greeting once when there are no messages (ref avoids double-add in Strict Mode)
-  const hasAddedGreeting = useRef(false);
-  useEffect(() => {
-    if (hasAddedGreeting.current || chatMessages.length > 0 || !personality) return;
-    hasAddedGreeting.current = true;
-    const greeting: ChatMessage = {
-      id: `msg_${Date.now()}`,
-      userId: user.id || 'user_1',
-      role: 'ai',
-      content: `${personality.greeting}\n\nI'm here to help you master your JAMB subjects. What would you like to learn about today?`,
-      timestamp: new Date(),
-      type: 'text',
-    };
-    addMessage(greeting);
-  }, [chatMessages.length, personality, user.id, addMessage]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
