@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
 import { useStore } from "@/store";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 import { captureReferralData } from "@/utils/referral";
 import { useDailyRoadmapNotification } from "@/state/notification.store";
@@ -247,22 +248,62 @@ function AppInitializer({ children }: { children: ReactNode }) {
 
       // If we have tokens but store is not authenticated, try to restore session (e.g. persist was cleared)
       if (token) {
+        let shouldClearTokens = true;
         try {
           const { authApi } = await import("@/api/auth.api");
           const me = await authApi.getMe();
           const userData = {
-            user_id: String(me.id),
-            email: me.email,
-            username: me.username,
-            nickname: me.nickname ?? me.username ?? "",
+            user_id: String((me as any).id),
+            email: (me as any).email,
+            username: (me as any).username,
+            nickname: (me as any).nickname ?? (me as any).username ?? "",
           };
           setUser(userData);
           setAuthenticated(true);
-          localStorage.setItem("propella_user_id", String(me.id));
+          localStorage.setItem("propella_user_id", String((me as any).id));
+          if ((me as any).email) localStorage.setItem("propella_user_email", (me as any).email);
+          if ((me as any).nickname) localStorage.setItem("propella_user_nickname", (me as any).nickname);
           console.log("[AppInitializer] Session restored from token");
           return;
-        } catch {
-          // Token invalid or expired
+        } catch (err: any) {
+          // Don't immediately clear tokens on 404 (endpoint missing) or other non-auth errors.
+          const status = err?.response?.status;
+          if (status === 401) {
+            // Token invalid or expired - proceed to clear below
+            console.log('[AppInitializer] Token invalid or expired (401)');
+            shouldClearTokens = true;
+          } else if (status === 404) {
+            console.warn('[AppInitializer] /accounts/me returned 404 - backend may not expose this endpoint. Falling back to persisted user.');
+            shouldClearTokens = false;
+            const storedUserId = localStorage.getItem('propella_user_id');
+            const storedEmail = localStorage.getItem('propella_user_email');
+            const storedNickname = localStorage.getItem('propella_user_nickname');
+            if (storedUserId) {
+              setUser({ user_id: storedUserId, email: storedEmail ?? undefined, nickname: storedNickname ?? (storedEmail ? storedEmail.split('@')[0] : '') });
+              setAuthenticated(true);
+              return;
+            }
+            // No persisted user to fall back to - keep tokens but don't clear them
+            return;
+          } else {
+            console.warn('[AppInitializer] getMe failed with non-auth error, preserving tokens where possible:', err);
+            shouldClearTokens = false;
+            const storedUserId = localStorage.getItem('propella_user_id');
+            const storedEmail = localStorage.getItem('propella_user_email');
+            const storedNickname = localStorage.getItem('propella_user_nickname');
+            if (storedUserId) {
+              setUser({ user_id: storedUserId, email: storedEmail ?? undefined, nickname: storedNickname ?? (storedEmail ? storedEmail.split('@')[0] : '') });
+              setAuthenticated(true);
+              return;
+            }
+          }
+
+          if (shouldClearTokens) {
+            // allow fallthrough to clearing tokens below
+          } else {
+            // don't clear tokens; continue without altering auth state
+            return;
+          }
         }
       }
 
@@ -277,6 +318,8 @@ function AppInitializer({ children }: { children: ReactNode }) {
       localStorage.removeItem("propella_token");
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("propella_user_id");
+      localStorage.removeItem("propella_user_email");
+      localStorage.removeItem("propella_user_nickname");
     } catch (error) {
       console.error("[AppInitializer] Initialization failed:", error);
       setInitError(error instanceof Error ? error : new Error("Initialization failed"));
@@ -356,17 +399,19 @@ export function Providers({ children }: ProvidersProps) {
       <MswProvider>
         <AppInitializer>
           <NotificationInitializer>
-            {children}
-            <Toaster 
-              position="top-center"
-              toastOptions={{
-                style: {
-                  background: "#1A1A1E",
-                  border: "1px solid #2A2A2E",
-                  color: "#F3F4F6",
-                },
-              }}
-            />
+            <AuthProvider>
+              {children}
+              <Toaster 
+                position="top-center"
+                toastOptions={{
+                  style: {
+                    background: "#1A1A1E",
+                    border: "1px solid #2A2A2E",
+                    color: "#F3F4F6",
+                  },
+                }}
+              />
+            </AuthProvider>
           </NotificationInitializer>
         </AppInitializer>
       </MswProvider>
