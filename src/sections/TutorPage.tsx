@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store';
 import { useUserStore } from '@/state/user.store';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,14 +26,13 @@ import { toast } from 'sonner';
 import { useAIVoicePlayer } from '@/services/aiVoicePlayer';
 import { tutorApi } from '@/api/tutor.api';
 import { usePaymentStatus } from '@/hooks/usePayment';
-import { PaymentModal } from '@/features/payment/PaymentModal';
 import { Lock, Crown } from 'lucide-react';
 
 export function TutorPage() {
+  const navigate = useNavigate();
   const { user, chatMessages, addMessage, subjects, addAssignment } = useStore();
   const { ai_voice_enabled } = useUserStore();
   const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(ai_voice_enabled);
@@ -55,18 +55,13 @@ export function TutorPage() {
             Complete payment to unlock the AI tutor and start learning.
           </p>
           <Button
-            onClick={() => setShowPaymentModal(true)}
+            onClick={() => navigate('/dashboard/pay')}
             className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
           >
             <Crown className="w-4 h-4 mr-2" />
             Unlock Full Access
           </Button>
         </Card>
-        <PaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={() => setShowPaymentModal(false)}
-        />
       </div>
     );
   }

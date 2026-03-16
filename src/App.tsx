@@ -8,13 +8,16 @@ import {
   PreventCompletedOnboarding,
 } from "@/routes/guards";
 
-// Layouts – lazy loaded for smaller initial bundle
-const AuthLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.AuthLayout })));
-const OnboardingLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.OnboardingLayout })));
-const MainLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.MainLayout })));
-const PaymentCallbackLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.PaymentCallbackLayout })));
-const VerifyLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.VerifyLayout })));
-const PaymentsVerifyLayout = lazy(() => import("@/routes/layouts").then((m) => ({ default: m.PaymentsVerifyLayout })));
+// Layouts – static import to avoid "Failed to fetch dynamically imported module" (Vite dev)
+import {
+  AuthLayout,
+  OnboardingLayout,
+  MainLayout,
+  PayPageLayout,
+  PaymentCallbackLayout,
+  VerifyLayout,
+  PaymentsVerifyLayout,
+} from "@/routes/layouts";
 
 // Page Components – lazy loaded
 const Login = lazy(() => import("@/sections/Login").then((m) => ({ default: m.Login })));
@@ -68,6 +71,14 @@ function App() {
         {/* ============================================================
             MAIN APP ROUTES (Protected - auth + onboarding required)
             ============================================================ */}
+        <Route
+          path="/dashboard/pay"
+          element={
+            <RequireOnboarding>
+              <PayPageLayout />
+            </RequireOnboarding>
+          }
+        />
         <Route
           path="/dashboard"
           element={
