@@ -15,12 +15,6 @@ export const roadmapApi = {
   generateAndSaveRoadmap: async (
     input: RoadmapInput
   ): Promise<GeneratedRoadmap> => {
-    console.log("[Roadmap] Generating roadmap with AI Engine...", {
-      subjects: input.subjects.map(s => s.name),
-      examDate: input.examDate,
-      quizCount: input.quizHistory.length,
-    });
-
     let days: InternalRoadmapDay[] = [];
 
     // Try AI Engine first if enabled
@@ -40,15 +34,12 @@ export const roadmapApi = {
               }
             : undefined
         );
-        console.log("[Roadmap] AI Engine generated", days.length, "days");
-      } catch (aiError) {
-        console.warn("[Roadmap] AI Engine failed, falling back to local generator:", aiError);
+      } catch {
       }
     }
 
     // If AI failed or disabled, use local generator
     if (days.length === 0) {
-      console.log("[Roadmap] Using local roadmap generator...");
       const localRoadmap = roadmapGenerator.generatePersonalizedRoadmap(input);
       days = localRoadmap.days;
     }
@@ -72,15 +63,10 @@ export const roadmapApi = {
 
     // Try to save to backend (when endpoint is available)
     try {
-      const backendFormat = roadmapGenerator.convertToBackendFormat(roadmap);
-      console.log("[Roadmap] Saving to backend...", backendFormat);
-      
       // UNCOMMENT WHEN BACKEND ENDPOINT IS READY:
+      // const backendFormat = roadmapGenerator.convertToBackendFormat(roadmap);
       // await apiClient.post("/api/roadmap/save/", backendFormat);
-      
-      console.log("[Roadmap] Saved to backend successfully");
-    } catch (error) {
-      console.warn("[Roadmap] Failed to save to backend (endpoint may not exist):", error);
+    } catch {
     }
 
     return roadmap;

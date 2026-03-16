@@ -13,4 +13,5 @@ export {
   MainLayout,
   PaymentCallbackLayout,
   VerifyLayout,
+  PaymentsVerifyLayout,
 } from "./layouts";

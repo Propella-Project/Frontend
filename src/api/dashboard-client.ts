@@ -1,33 +1,44 @@
 /**
- * Dashboard API Client - Cookie-based Authentication
- * 
- * This client is designed for the Propella Dashboard at dashboard.propella.ng
- * It uses cookie-based authentication with credentials: "include"
- * to communicate with the Django backend at api.propella.ng
+ * Dashboard API Client – Bearer auth using access token from login
  */
 
 import { ENV } from "@/config/env";
+import { getToken } from "./client";
 
-/**
- * Base fetch function with credentials included
- */
+const PUBLIC_ENDPOINTS = [
+  "/accounts/login/",
+  "/accounts/token/",
+  "/accounts/token/refresh/",
+  "/accounts/register/",
+  "/accounts/verify-email/",
+  "/accounts/resend-code/",
+  "/accounts/forgot-password/",
+  "/accounts/reset-password/",
+];
+
+function isPublicEndpoint(endpoint: string): boolean {
+  return PUBLIC_ENDPOINTS.some((p) => endpoint.includes(p));
+}
+
 async function fetchWithCredentials(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
   const url = endpoint.startsWith("http") ? endpoint : `${ENV.API_BASE_URL}${endpoint}`;
-  
+  const token = getToken();
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+  if (token && !isPublicEndpoint(endpoint)) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    credentials: "include", // Always include cookies
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    credentials: "include",
+    headers,
   });
-
-  // Note: Auth redirects are handled by AuthContext
-  // This prevents redirect loops between landing page and dashboard
 
   return response;
 }

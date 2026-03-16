@@ -1,61 +1,51 @@
 /**
  * Referral Attribution Utility
- * 
- * Captures referral data from URL parameters and stores them
- * for later use during signup.
+ *
+ * Captures referral data from URL and stores in sessionStorage only
+ * so no localStorage is written before user has logged in.
+ * Used during signup/login to send referrer info to the server.
  */
 
 const REFERRER_CODE_KEY = "referrerCode";
 const REFERRER_NAME_KEY = "referrerName";
 const REFERRER_EMAIL_KEY = "referrerEmail";
 
+function getStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage;
+}
+
 /**
- * Capture referral data from URL search params
- * Supports both 'code' (new) and 'ref' (legacy) parameters
- * Call this on app initialization
+ * Capture referral data from URL search params (sessionStorage only; no localStorage before login)
  */
 export function captureReferralData(): void {
-  if (typeof window === "undefined") return;
+  const storage = getStorage();
+  if (!storage) return;
 
   const params = new URLSearchParams(window.location.search);
-  
-  // Support both 'code' (new format) and 'ref' (legacy format)
   const code = params.get("code") || params.get("ref");
   const referrerName = params.get("name");
   const referrerEmail = params.get("email");
 
-  if (code) {
-    localStorage.setItem(REFERRER_CODE_KEY, code);
-    console.log("[Referral] Captured referrer code:", code);
-  }
-
-  if (referrerName) {
-    localStorage.setItem(REFERRER_NAME_KEY, referrerName);
-    console.log("[Referral] Captured referrer name:", referrerName);
-  }
-
-  if (referrerEmail) {
-    localStorage.setItem(REFERRER_EMAIL_KEY, referrerEmail);
-    console.log("[Referral] Captured referrer email:", referrerEmail);
-  }
+  if (code) storage.setItem(REFERRER_CODE_KEY, code);
+  if (referrerName) storage.setItem(REFERRER_NAME_KEY, referrerName);
+  if (referrerEmail) storage.setItem(REFERRER_EMAIL_KEY, referrerEmail);
 }
 
 /**
- * Get stored referral data
+ * Get stored referral data (from sessionStorage)
  */
 export function getReferralData(): {
   code: string | null;
   name: string | null;
   email: string | null;
 } {
-  if (typeof window === "undefined") {
-    return { code: null, name: null, email: null };
-  }
-
+  const storage = getStorage();
+  if (!storage) return { code: null, name: null, email: null };
   return {
-    code: localStorage.getItem(REFERRER_CODE_KEY),
-    name: localStorage.getItem(REFERRER_NAME_KEY),
-    email: localStorage.getItem(REFERRER_EMAIL_KEY),
+    code: storage.getItem(REFERRER_CODE_KEY),
+    name: storage.getItem(REFERRER_NAME_KEY),
+    email: storage.getItem(REFERRER_EMAIL_KEY),
   };
 }
 
@@ -63,7 +53,8 @@ export function getReferralData(): {
  * Check if user was referred
  */
 export function hasReferralData(): boolean {
-  return !!localStorage.getItem(REFERRER_CODE_KEY);
+  const storage = getStorage();
+  return storage ? !!storage.getItem(REFERRER_CODE_KEY) : false;
 }
 
 /**
@@ -78,10 +69,11 @@ export function getReferrerDisplayName(): string | null {
  * Clear referral data after successful signup
  */
 export function clearReferralData(): void {
-  localStorage.removeItem(REFERRER_CODE_KEY);
-  localStorage.removeItem(REFERRER_NAME_KEY);
-  localStorage.removeItem(REFERRER_EMAIL_KEY);
-  console.log("[Referral] Cleared referral data");
+  const storage = getStorage();
+  if (!storage) return;
+  storage.removeItem(REFERRER_CODE_KEY);
+  storage.removeItem(REFERRER_NAME_KEY);
+  storage.removeItem(REFERRER_EMAIL_KEY);
 }
 
 /**

@@ -12,12 +12,6 @@ interface ApiResponse<T = unknown> {
   status?: number;
 }
 
-// Type for login response
-interface LoginResponse {
-  access: string;
-  refresh: string;
-}
-
 // Type for registration
 interface RegisterData {
   email: string;
@@ -48,6 +42,7 @@ interface UserData {
 // List of endpoints that don't require authentication (paths relative to API_BASE_URL)
 const PUBLIC_ENDPOINTS = [
   "/accounts/register/",
+  "/accounts/login/",
   "/accounts/token/",
   "/accounts/token/refresh/",
   "/accounts/verify-email/",
@@ -67,16 +62,15 @@ async function apiFetch<T>(
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
-  // Check localStorage first, fallback to cookies (for cross-subdomain access)
   const token =
-    localStorage.getItem("access_token") || getCookie("access_token");
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("propella_token") ||
+    getCookie("access_token");
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
-
-  // Only add authorization header for protected endpoints
-  // and only if a valid token exists
+  // Use access token from login as Bearer for all endpoints except public (e.g. login)
   if (token && !isPublicEndpoint(endpoint)) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -143,12 +137,12 @@ async function apiFetch<T>(
   }
 }
 
-// Auth
+// Auth (POST /api/accounts/login/) – response: { success, message, data: { access, refresh, user } }
 export async function login(credentials: { email: string; password: string }) {
-  return apiFetch<LoginResponse>("/accounts/token/", {
-    method: "POST",
-    body: JSON.stringify(credentials),
-  });
+  return apiFetch<{ success: boolean; message: string; data: { access: string; refresh: string; user?: { id: number; email: string; username?: string } } }>(
+    "/accounts/login/",
+    { method: "POST", body: JSON.stringify(credentials) }
+  );
 }
 
 export async function refreshToken(refresh: string) {
@@ -245,7 +239,6 @@ export async function getUser() {
   // return apiFetch<UserData>("/api/accounts/user/", {
   //   method: "GET",
   // });
-  console.log("[API] getUser disabled - endpoint not available");
   return {
     success: true,
     data: undefined,
