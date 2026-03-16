@@ -62,6 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, user_id, nickname, username, storeEmail]);
 
+<<<<<<< HEAD
   // Try to fetch user data from backend and sync to store (uses authApi which wraps axios)
   const refreshUser = async (): Promise<void> => {
     try {
@@ -96,16 +97,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else {
         console.log("[Auth] Could not fetch user data:", err);
       }
+=======
+  // Sync user from storage to store (no /accounts/me – server endpoint not used; 24h expiry in storage)
+  const refreshUser = async (): Promise<void> => {
+    try {
+      const { authApi } = await import("@/api/auth.api");
+      const stored = authApi.getStoredUser();
+      if (stored) {
+        setUser({
+          id: String(stored.id),
+          email: stored.email,
+          username: stored.username,
+          nickname: stored.nickname ?? stored.username ?? "",
+        });
+        const updates: Parameters<typeof setStoreUser>[0] = {
+          user_id: String(stored.id),
+          email: stored.email,
+          username: stored.username,
+          nickname: stored.nickname ?? stored.username ?? "",
+        };
+        setStoreUser(updates);
+      }
+    } catch (err) {
+>>>>>>> 1e0b879f1f49b827a1978f9aa7181fc830322351
     }
   };
 
-  // Logout
+  // Logout – clear store and auth storage (tokens + user; 24h data removed)
   const logout = async (): Promise<void> => {
     try {
-      await fetch(`${ENV.API_BASE_URL}/accounts/logout/`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const { authApi } = await import("@/api/auth.api");
+      await authApi.logout();
     } catch (err) {
       console.error("[Auth] Logout failed:", err);
     } finally {
@@ -126,12 +148,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+const defaultAuthValue: AuthContextType = {
+  user: null,
+  isLoading: false,
+  isAuthenticated: false,
+  logout: async () => {},
+  refreshUser: async () => {},
+};
+
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  return context === undefined ? defaultAuthValue : context;
 }
 
 export default AuthContext;

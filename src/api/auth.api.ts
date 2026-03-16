@@ -16,16 +16,51 @@ const getCookie = (name: string): string | null => {
   return null;
 };
 
-// Get auth token (checks cookies first for cross-subdomain, then localStorage)
+// Access token: cookie is source of truth (24h); when cookie missing, treat as logged out
 const getAuthTokenFromCookies = (): string | null => {
   if (typeof window === "undefined") return null;
-  // Check cookies first (set by landing page with Domain=.propella.ng)
   const cookieToken = getCookie("access_token") || getCookie("auth_token");
   if (cookieToken) return cookieToken;
-  // Fallback to localStorage
-  return localStorage.getItem("propella_token") || 
-         localStorage.getItem("access_token");
+  localStorage.removeItem("propella_token");
+  localStorage.removeItem("access_token");
+  return null;
 };
+
+// User + session storage (localStorage is effective; 24h TTL matches access token)
+const STORAGE_KEY_USER = "propella_user";
+const STORAGE_KEY_EXPIRY = "propella_session_expiry";
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export interface StoredUser {
+  id: number;
+  email: string;
+  username?: string;
+  nickname?: string;
+}
+
+function getStoredUserInternal(): StoredUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const expiryRaw = localStorage.getItem(STORAGE_KEY_EXPIRY);
+    const userRaw = localStorage.getItem(STORAGE_KEY_USER);
+    if (!expiryRaw || !userRaw) return null;
+    const expiry = Number(expiryRaw);
+    if (Number.isNaN(expiry) || expiry < Date.now()) {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_EXPIRY);
+      return null;
+    }
+    return JSON.parse(userRaw) as StoredUser;
+  } catch {
+    return null;
+  }
+}
+
+function clearUserStorage(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(STORAGE_KEY_USER);
+  localStorage.removeItem(STORAGE_KEY_EXPIRY);
+}
 
 export interface LoginPayload {
   email: string;
@@ -47,6 +82,22 @@ export interface SignupPayload {
 export interface TokenResponse {
   access: string;
   refresh: string;
+}
+
+/** Login API response: { success, message, data: { access, refresh, user } } */
+export interface LoginApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    access: string;
+    refresh: string;
+    user: {
+      id: number;
+      email: string;
+      username?: string;
+      nickname?: string;
+    };
+  };
 }
 
 export interface AuthResponse extends TokenResponse {
@@ -89,11 +140,26 @@ export function generateReferralCode(): string {
 }
 
 export const authApi = {
-  // Login using JWT token endpoint (POST /api/accounts/token/)
-  login: async (payload: LoginPayload): Promise<TokenResponse> => {
-    const response = await apiClient.post(ENDPOINTS.auth.login, payload);
-    return response.data;
+  // Login (POST /api/accounts/login/) – response: { success, message, data: { access, refresh, user } }
+  login: async (payload: LoginPayload): Promise<{ access: string; refresh: string; user?: LoginApiResponse["data"]["user"] }> => {
+    const response = await apiClient.post<LoginApiResponse>(ENDPOINTS.auth.login, payload);
+    const { data } = response.data;
+    return { access: data.access, refresh: data.refresh, user: data.user };
   },
+
+  // Save user to localStorage with 24h expiry (call after login; used to determine auth without /accounts/me)
+  saveUserAfterLogin: (user: StoredUser | (Record<string, unknown> & { id: number; email: string })): void => {
+    if (typeof window === "undefined") return;
+    const expiry = Date.now() + TOKEN_TTL_MS;
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    localStorage.setItem(STORAGE_KEY_EXPIRY, String(expiry));
+  },
+
+  // Get stored user if not expired; returns null and clears storage when past 24h
+  getStoredUser: (): StoredUser | null => getStoredUserInternal(),
+
+  // Clear user + expiry from storage (call on logout or when session expired)
+  clearUserStorage,
 
   // Register new user (POST /api/accounts/register/)
   signup: async (payload: SignupPayload): Promise<AuthResponse> => {
@@ -170,16 +236,25 @@ export const authApi = {
     return response.data;
   },
 
-  // Logout (client-side only for JWT) - clears both token names
+  // Logout – clear cookies (access token 24h), localStorage, and stored user
   logout: async (): Promise<void> => {
+    clearUserStorage();
+    if (typeof window !== "undefined") {
+      const { deleteCookie } = await import("@/lib/cookies");
+      deleteCookie("access_token");
+      deleteCookie("auth_token");
+      deleteCookie("refresh_token");
+    }
     localStorage.removeItem("propella_token");
     localStorage.removeItem("access_token");
     localStorage.removeItem("propella_refresh_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("propella_user_id");
   },
 
-  // Helper to set token after login (sets both names for compatibility)
+  // Sync access token to localStorage (cookie with 24h is set in Login; this is for same-tab reads)
   setToken: (token: string): void => {
+    if (typeof window === "undefined") return;
     localStorage.setItem("propella_token", token);
     localStorage.setItem("access_token", token);
   },
@@ -205,24 +280,14 @@ export const authApi = {
            localStorage.getItem("refresh_token");
   },
 
-  // Helper to check if user is authenticated (checks cookies first, then localStorage)
+  // Authenticated = valid token + stored user not expired (no /accounts/me call)
   isAuthenticated: (): boolean => {
-    return !!getAuthTokenFromCookies();
+    return !!(getAuthTokenFromCookies() && getStoredUserInternal());
   },
 
-  // Get current user (GET /accounts/me/) - used after login and to restore session
-  getMe: async (): Promise<{
-    id: number;
-    email?: string;
-    username?: string;
-    nickname?: string;
-    first_name?: string;
-    last_name?: string;
-    referral_code?: string;
-    [key: string]: unknown;
-  }> => {
-    const response = await apiClient.get(ENDPOINTS.auth.me);
-    return response.data;
+  // Get current user from storage only (server endpoint /accounts/me not used; 24h expiry applied)
+  getMe: async (): Promise<StoredUser | null> => {
+    return Promise.resolve(getStoredUserInternal());
   },
 
   // Edit user (How_it_works.md §8) PUT /accounts/edit-user/

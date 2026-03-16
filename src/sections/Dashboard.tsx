@@ -88,22 +88,11 @@ export function Dashboard() {
   // Get pending assignments
   const pendingAssignments = assignments.filter((a) => a.status === 'pending');
 
-  // Chart data (mock for recent quiz scores)
   const chartData = quizHistory.slice(-7).map((q, i) => ({
     day: `Day ${i + 1}`,
     score: q.score,
   }));
-
-  // If no quiz history, show sample data
-  const displayChartData = chartData.length > 0 ? chartData : [
-    { day: 'Mon', score: 65 },
-    { day: 'Tue', score: 72 },
-    { day: 'Wed', score: 58 },
-    { day: 'Thu', score: 80 },
-    { day: 'Fri', score: 85 },
-    { day: 'Sat', score: 78 },
-    { day: 'Sun', score: 90 },
-  ];
+  const displayChartData = chartData;
 
   const rankInfo = RANKS.find((r) => r.name === gamification.rank) || RANKS[0];
   const levelProgress = (gamification.points / gamification.nextLevelPoints) * 100;

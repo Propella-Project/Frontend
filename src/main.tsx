@@ -6,9 +6,6 @@ import { Providers } from "./app/providers";
 
 // Enable console warnings for development
 if (import.meta.env.DEV) {
-  console.log("[Propella] Development mode enabled");
-  console.log("[Propella] AI Engine integration active");
-  console.log("[Propella] Run localStorage.setItem('propella_debug', 'true') for verbose logging");
 }
 
 // Mount React app

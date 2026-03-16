@@ -39,12 +39,9 @@ export async function generateDiagnosticQuiz(
   subjects: Subject[],
   questionsPerSubject: number = 3
 ): Promise<DiagnosticQuizResult> {
-  console.log("[DiagnosticQuiz] Generating quiz for subjects:", subjects.map(s => s.name));
-
   // Try AI Engine first (if enabled)
   if (FEATURES.ENABLE_AI_ENGINE) {
     try {
-      console.log("[DiagnosticQuiz] Attempting AI Engine...");
       const aiQuestions = await aiQuizService.generateMixedAIQuestions(
         subjects,
         questionsPerSubject,
@@ -52,20 +49,17 @@ export async function generateDiagnosticQuiz(
       );
       
       if (aiQuestions.length > 0) {
-        console.log(`[DiagnosticQuiz] AI Engine returned ${aiQuestions.length} questions`);
         return {
           questions: aiQuestions,
           source: "ai",
         };
       }
     } catch (error) {
-      console.warn("[DiagnosticQuiz] AI Engine failed:", error);
     }
   }
 
   // Try Backend API – single POST: { subjects: user's selected subject names, topic: "any", difficulty, number_of_questions }
   try {
-    console.log("[DiagnosticQuiz] Attempting Backend API (subjects array)...");
     const subjectNames = subjects.map((s) => s.name.toLowerCase().trim());
     const totalQuestions = questionsPerSubject * subjects.length;
     const response = await quizApi.generateDiagnosticQuiz({
@@ -74,7 +68,6 @@ export async function generateDiagnosticQuiz(
       difficulty: "medium",
       number_of_questions: totalQuestions,
     });
-    console.log(`[DiagnosticQuiz] API response: ${response?.length ?? 0} questions`);
 
     if (response?.length > 0) {
       const apiQuestions: Question[] = response.map((q, index) => {
@@ -97,14 +90,12 @@ export async function generateDiagnosticQuiz(
           topic: q.subject ?? "General",
         };
       });
-      console.log(`[DiagnosticQuiz] Backend API returned ${apiQuestions.length} questions`);
       return {
         questions: apiQuestions,
         source: "api",
       };
     }
   } catch (error) {
-    console.warn("[DiagnosticQuiz] Backend API failed:", error);
   }
 
   return {

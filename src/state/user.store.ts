@@ -125,10 +125,8 @@ export const useUserStore = create<UserState>()(
         // Only fetch if user is authenticated
         const state = get();
         if (!state.isAuthenticated || !state.user_id) {
-          console.log("[Referral] Skipping fetch - user not authenticated");
           return;
         }
-        console.log("[Referral] fetchReferralStats disabled - endpoint not available");
         // try {
         //   const stats = await referralApi.getReferralStats();
         //   set({
@@ -155,10 +153,8 @@ export const useUserStore = create<UserState>()(
         // Only refresh if user is authenticated
         const state = get();
         if (!state.isAuthenticated || !state.user_id) {
-          console.log("[User] Skipping refresh - user not authenticated");
           return;
         }
-        console.log("[User] refreshUserData disabled - endpoint not available");
         // try {
         //   const dashboardData = await dashboardApi.getDashboard();
         //   set((prevState) => ({

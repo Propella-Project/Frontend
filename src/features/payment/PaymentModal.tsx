@@ -38,7 +38,7 @@ const defaultFwConfig: FlutterwaveConfig = {
     description: "Subscription payment",
     logo: typeof window !== "undefined" ? `${window.location.origin}/favicon.ico` : "",
   },
-  redirect_url: typeof window !== "undefined" ? `${window.location.origin}/verify` : "/verify",
+  redirect_url: typeof window !== "undefined" ? `${window.location.origin}/payments/verify` : "/payments/verify",
 };
 
 export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
@@ -120,7 +120,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
           description: "Subscription payment",
           logo: `${window.location.origin}/favicon.ico`,
         },
-        redirect_url: `${window.location.origin}/verify`,
+        redirect_url: `${window.location.origin}/payments/verify`,
         meta: { plan_id: plan.id },
       });
       setTriggerPay(true);

@@ -22,18 +22,8 @@ export const dashboardApi = {
         streak: 0,
       };
     } catch (error) {
-      console.warn("[Dashboard] API not available, using fallback");
-      // Return fallback data
-      return {
-        nickname: "Learner",
-        rank: "Rookie",
-        level: 1,
-        points: 0,
-        average_score: 0,
-        completed_days: 0,
-        pending_tasks: 0,
-        streak: 0,
-      };
+      console.warn("[Dashboard] API not available:", error);
+      throw error;
     }
   },
 

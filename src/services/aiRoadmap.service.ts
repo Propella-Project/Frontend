@@ -156,21 +156,9 @@ export async function generateAIRoadmap(
     ? diagnosticResults.strongTopics
     : performance.strongTopics;
 
-  console.log("[AI Roadmap] Generating with:", {
-    subjects: subjects.map(s => s.name),
-    examDate: examDate.toISOString(),
-    dailyStudyHours,
-    quizCount: quizHistory.length,
-    subjectScores: finalSubjectScores,
-    weakTopics: finalWeakTopics,
-    strongTopics: finalStrongTopics,
-  });
-
   // Try AI Engine first if enabled
   if (FEATURES.ENABLE_AI_ENGINE) {
     try {
-      console.log("[AI Roadmap] Calling AI Engine...");
-      
       // Build quiz results for AI
       const quizResult = buildQuizResultForAI(subjects, quizHistory, finalSubjectScores);
       
@@ -181,8 +169,6 @@ export async function generateAIRoadmap(
         goal: `JAMB exam preparation. Daily study: ${dailyStudyHours} hours. Student performance: ${JSON.stringify(finalSubjectScores)}. Focus areas: ${finalWeakTopics.join(', ')}`,
         quiz_result: quizResult.length > 0 ? quizResult : undefined,
       });
-
-      console.log("[AI Roadmap] AI Engine returned phases:", response.phases.length);
 
       // Convert AI phases to roadmap days
       const roadmapDays = convertAIPhasesToRoadmapDays(
@@ -195,17 +181,13 @@ export async function generateAIRoadmap(
         finalSubjectScores
       );
 
-      console.log("[AI Roadmap] Generated", roadmapDays.length, "days from AI");
       return roadmapDays;
-      
-    } catch (aiError) {
-      console.warn("[AI Roadmap] AI Engine failed, falling back to local generation:", aiError);
+    } catch {
       // Continue to local fallback
     }
   }
 
   // Fallback to local generation
-  console.log("[AI Roadmap] Using local roadmap generator...");
   const localRoadmap = roadmapGenerator.generatePersonalizedRoadmap({
     studentId,
     subjects,
@@ -215,8 +197,6 @@ export async function generateAIRoadmap(
     weakTopics: finalWeakTopics,
     strongTopics: finalStrongTopics,
   });
-
-  console.log("[AI Roadmap] Generated", localRoadmap.days.length, "days locally");
   return localRoadmap.days;
 }
 
@@ -437,7 +417,6 @@ export async function updateAIProgress(
   try {
     // Validate inputs before sending
     if (!studentId || !subject || !topic || masteryScore === undefined) {
-      console.warn("[AI Progress] Invalid progress data:", { studentId, subject, topic, masteryScore });
       return;
     }
 
@@ -448,31 +427,14 @@ export async function updateAIProgress(
     const normalizedTopic = String(topic).trim();
     const normalizedScore = Math.max(0, Math.min(100, Math.round(masteryScore))); // Clamp 0-100
 
-    console.log("[AI Progress] Updating progress:", {
-      student_id: normalizedStudentId,
-      subject: normalizedSubject,
-      topic: normalizedTopic,
-      mastery_score: normalizedScore,
-    });
-
     await aiEngineApi.updateProgress({
       student_id: normalizedStudentId,
       subject: normalizedSubject,
       topic: normalizedTopic,
       mastery_score: normalizedScore,
     });
-    
-    console.log("[AI Progress] Update successful");
-  } catch (error) {
-    // Log detailed error but don't throw - progress update failure shouldn't break the app
-    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
-    if (axiosError.response?.status === 422) {
-      console.warn("[AI Progress] Validation error (422):", axiosError.response?.data);
-    } else if (axiosError.response?.status === 500) {
-      console.warn("[AI Progress] Server error (500) - student may not be registered in AI Engine");
-    } else {
-      console.error("[AI Progress] Failed to update:", error);
-    }
+  } catch {
+    // Progress update failure shouldn't break the app
   }
 }
 

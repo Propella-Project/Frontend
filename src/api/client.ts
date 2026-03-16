@@ -50,15 +50,14 @@ function onTokenRefreshed(newToken: string) {
   refreshSubscribers = [];
 }
 
-// Get stored token (checks cookies first for cross-subdomain, then localStorage)
+// Access token: cookie (24h expiry) is source of truth; when cookie missing, treat as logged out
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  // Check cookies first (set by landing page with Domain=.propella.ng)
   const cookieToken = getCookie("access_token") || getCookie("auth_token");
   if (cookieToken) return cookieToken;
-  // Fallback to localStorage
-  return localStorage.getItem(TOKEN_KEY) || 
-         localStorage.getItem(TOKEN_KEY_ALT);
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY_ALT);
+  return null;
 }
 
 // Get stored refresh token (checks cookies first for cross-subdomain, then localStorage)
@@ -119,8 +118,9 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-// Public endpoints that don't require authentication
+// Public endpoints – do NOT send Bearer token (login and other unauthenticated routes)
 const PUBLIC_ENDPOINTS = [
+  "/accounts/login/",
   "/accounts/token/",
   "/accounts/token/refresh/",
   "/accounts/register/",
@@ -130,17 +130,15 @@ const PUBLIC_ENDPOINTS = [
   "/accounts/reset-password/",
 ];
 
-// Check if URL is a public endpoint
 function isPublicEndpoint(url: string | undefined): boolean {
   if (!url) return false;
   return PUBLIC_ENDPOINTS.some((endpoint) => url.includes(endpoint));
 }
 
-// Request interceptor to add auth token
+// Request interceptor: use access token from login as Bearer for all requests except public endpoints
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getToken();
-    // Only add auth header if we have a token AND it's not a public endpoint
     if (token && config.headers && !isPublicEndpoint(config.url)) {
       config.headers.Authorization = `Bearer ${token}`;
     }

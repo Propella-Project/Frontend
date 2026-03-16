@@ -30,6 +30,28 @@ function registerMock(path: string, handler: (request: Request) => Promise<Respo
 }
 
 // Auth handlers
+registerMock("accounts/login/", async () => {
+  await delay(300);
+  const auth = mockData.mockAuthResponse;
+  const user = auth.user as { user_id?: string; email?: string; username?: string };
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: "Login successful",
+      data: {
+        access: auth.access,
+        refresh: auth.refresh,
+        user: {
+          id: Number(user?.user_id) || 1,
+          email: user?.email ?? "user@example.com",
+          username: user?.username ?? "user",
+        },
+      },
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+});
+
 registerMock("accounts/token/", async () => {
   await delay(300);
   return new Response(JSON.stringify(mockData.mockAuthResponse), {
