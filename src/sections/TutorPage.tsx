@@ -21,7 +21,7 @@ import {
   Square,
 } from 'lucide-react';
 import { PERSONALITIES } from '@/types';
-import type { ChatMessage } from '@/types';
+import type { ChatMessage, PersonalityType } from '@/types';
 import { toast } from 'sonner';
 import { useAIVoicePlayer } from '@/services/aiVoicePlayer';
 import { tutorApi } from '@/api/tutor.api';
@@ -42,6 +42,11 @@ export function TutorPage() {
   const voicePlayer = useAIVoicePlayer();
 
   if (!user) return null;
+
+  // Safe personality fallback so header/greeting never throw
+  const personality =
+    (user.personality && PERSONALITIES[user.personality as PersonalityType]) ||
+    PERSONALITIES.mentor;
 
   if (!isPaid && !isCheckingPayment) {
     return (
@@ -65,8 +70,6 @@ export function TutorPage() {
       </div>
     );
   }
-
-  const personality = PERSONALITIES[user.personality];
 
   // Handle text-to-speech for a message
   const handleSpeak = (message: ChatMessage) => {
@@ -101,7 +104,7 @@ export function TutorPage() {
   // Cleanup speech on unmount
   useEffect(() => {
     return () => {
-      voicePlayer.stop();
+      voicePlayer?.stop?.();
     };
   }, []);
 
@@ -113,20 +116,21 @@ export function TutorPage() {
     scrollToBottom();
   }, [chatMessages]);
 
-  // Initial greeting if no messages
+  // Initial greeting once when there are no messages (ref avoids double-add in Strict Mode)
+  const hasAddedGreeting = useRef(false);
   useEffect(() => {
-    if (chatMessages.length === 0) {
-      const greeting: ChatMessage = {
-        id: `msg_${Date.now()}`,
-        userId: user.id || 'user_1',
-        role: 'ai',
-        content: `${personality.greeting}\n\nI'm here to help you master your JAMB subjects. What would you like to learn about today?`,
-        timestamp: new Date(),
-        type: 'text',
-      };
-      addMessage(greeting);
-    }
-  }, []);
+    if (hasAddedGreeting.current || chatMessages.length > 0 || !personality) return;
+    hasAddedGreeting.current = true;
+    const greeting: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      userId: user.id || 'user_1',
+      role: 'ai',
+      content: `${personality.greeting}\n\nI'm here to help you master your JAMB subjects. What would you like to learn about today?`,
+      timestamp: new Date(),
+      type: 'text',
+    };
+    addMessage(greeting);
+  }, [chatMessages.length, personality, user.id, addMessage]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -150,11 +154,15 @@ export function TutorPage() {
         message: input,
       });
 
+      const content =
+        (aiResponse?.response && String(aiResponse.response).trim()) ||
+        "I couldn't generate a response right now. Please try again.";
+
       const aiMessage: ChatMessage = {
         id: `msg_${Date.now() + 1}`,
         userId: user.id || 'user_1',
         role: 'ai',
-        content: aiResponse.response,
+        content,
         timestamp: new Date(),
         type: 'text',
       };
@@ -235,9 +243,15 @@ export function TutorPage() {
   };
 
   const handleAssignWork = () => {
-    const subjectsList = subjects.filter((s) => user.subjects.some((us) => us.id === s.id));
+    const userSubjects = Array.isArray(user.subjects) ? user.subjects : [];
+    const subjectsList = subjects.filter((s) => userSubjects.some((us) => us.id === s.id));
+    if (subjectsList.length === 0) {
+      toast.error("No subjects selected. Complete onboarding or add subjects in Profile.");
+      return;
+    }
     const randomSubject = subjectsList[Math.floor(Math.random() * subjectsList.length)];
-    const randomTopic = randomSubject?.topics[Math.floor(Math.random() * randomSubject.topics.length)];
+    const topics = randomSubject?.topics ?? [];
+    const randomTopic = topics.length > 0 ? topics[Math.floor(Math.random() * topics.length)] : null;
 
     if (randomSubject && randomTopic) {
       addAssignment({
@@ -259,6 +273,8 @@ export function TutorPage() {
       toast.success('Assignment created!', {
         description: `Review ${randomTopic.name} by tomorrow.`,
       });
+    } else {
+      toast.error("No topics available for assignments. Add subjects in Profile.");
     }
   };
 
@@ -355,7 +371,9 @@ export function TutorPage() {
               </div>
               <div className="text-right mt-1">
                 <span className="text-xs opacity-50">
-                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {message.timestamp
+                    ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : ''}
                 </span>
               </div>
             </div>
