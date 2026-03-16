@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
@@ -21,12 +22,11 @@ import { Input } from '@/components/ui/input';
 import { aiQuizService } from '@/services/aiQuiz.service';
 import { toast } from 'sonner';
 import { usePaymentStatus } from '@/hooks/usePayment';
-import { PaymentModal } from '@/features/payment/PaymentModal';
 
 export function QuestionCatalog() {
+  const navigate = useNavigate();
   const { subjects, quizHistory, startQuiz, user, gamification } = useStore();
   const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMarathonLoading, setIsMarathonLoading] = useState(false);
 
@@ -42,18 +42,13 @@ export function QuestionCatalog() {
             Complete payment to unlock practice quizzes and past questions.
           </p>
           <Button
-            onClick={() => setShowPaymentModal(true)}
+            onClick={() => navigate('/dashboard/pay')}
             className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
           >
             <Crown className="w-4 h-4 mr-2" />
             Unlock Full Access
           </Button>
         </Card>
-        <PaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={() => setShowPaymentModal(false)}
-        />
       </div>
     );
   }

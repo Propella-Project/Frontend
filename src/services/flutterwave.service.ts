@@ -21,3 +21,25 @@ export function generateTransactionRef(): string {
 export function isFlutterwaveConfigured(): boolean {
   return Boolean(ENV.FLUTTERWAVE_PUBLIC_KEY);
 }
+
+const FW_ZINDEX_STYLE_ID = "propella-fw-checkout-zindex";
+
+/**
+ * Ensure Flutterwave checkout iframe is on top and clickable.
+ * Call before opening payment; remove when modal closes (onClose/callback).
+ */
+export function ensureFlutterwaveOnTop(): void {
+  if (typeof document === "undefined") return;
+  let el = document.getElementById(FW_ZINDEX_STYLE_ID);
+  if (!el) {
+    el = document.createElement("style");
+    el.id = FW_ZINDEX_STYLE_ID;
+    el.textContent = `iframe[name="checkout"]{z-index:2147483647!important;pointer-events:auto!important;}`;
+    document.head.appendChild(el);
+  }
+}
+
+export function removeFlutterwaveZIndexFix(): void {
+  if (typeof document === "undefined") return;
+  document.getElementById(FW_ZINDEX_STYLE_ID)?.remove();
+}

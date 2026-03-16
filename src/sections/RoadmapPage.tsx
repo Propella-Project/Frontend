@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useStore } from "@/store";
 import { usePaymentStatus } from "@/hooks/usePayment";
 import { motion } from "framer-motion";
@@ -5,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { PaymentModal } from "@/features/payment/PaymentModal";
 import {
   Lock,
   CheckCircle,
@@ -18,12 +18,11 @@ import {
   Crown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
 
 export function RoadmapPage() {
+  const navigate = useNavigate();
   const { roadmap, user, subjects, startQuiz, completeTask } = useStore();
   const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   if (!user) return null;
 
@@ -55,11 +54,6 @@ export function RoadmapPage() {
     return subject?.name || "Unknown";
   };
 
-  // Handle payment success
-  const handlePaymentSuccess = () => {
-    toast.success("Payment successful! Welcome to PROPELLA!");
-  };
-
   return (
     <div className="min-h-screen bg-[#0F0F11] p-4 pb-24">
       {/* Payment Required Banner - Show if not paid */}
@@ -81,7 +75,7 @@ export function RoadmapPage() {
                 </p>
               </div>
               <Button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={() => navigate('/dashboard/pay')}
                 className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold text-sm"
               >
                 Pay Now
@@ -429,7 +423,7 @@ export function RoadmapPage() {
               </div>
             </div>
             <Button
-              onClick={() => setShowPaymentModal(true)}
+              onClick={() => navigate('/dashboard/pay')}
               className="w-full mt-6 bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
             >
               <Crown className="w-4 h-4 mr-2" />
@@ -438,13 +432,6 @@ export function RoadmapPage() {
           </Card>
         </motion.div>
       )}
-
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={handlePaymentSuccess}
-      />
     </div>
   );
 }

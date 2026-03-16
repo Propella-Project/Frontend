@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store';
 import { useUserStore } from '@/state/user.store';
 import { usePaymentStatus } from '@/hooks/usePayment';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { SettingsDropdown } from '@/features/settings/SettingsDropdown';
-import { PaymentModal } from '@/features/payment/PaymentModal';
 import { ReferralPanel } from '@/components/referrals/ReferralPanel';
 import {
   Flame,
@@ -39,8 +39,8 @@ export function Dashboard() {
     refreshUserData 
   } = useUserStore();
   
+  const navigate = useNavigate();
   const { isPaid, checkSubscriptionStatus } = usePaymentStatus();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showReferralPanel, setShowReferralPanel] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(true);
 
@@ -97,12 +97,6 @@ export function Dashboard() {
   const rankInfo = RANKS.find((r) => r.name === gamification.rank) || RANKS[0];
   const levelProgress = (gamification.points / gamification.nextLevelPoints) * 100;
 
-  // Handle payment success
-  const handlePaymentSuccess = () => {
-    toast.success("Payment successful! Welcome to PROPELLA!");
-    checkSubscriptionStatus();
-  };
-
   return (
     <div className="min-h-screen bg-[#0F0F11] p-4 pb-24">
       {/* Payment Required Banner - Show if not paid */}
@@ -124,7 +118,7 @@ export function Dashboard() {
                 </p>
               </div>
               <Button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={() => navigate('/dashboard/pay')}
                 className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold text-sm"
               >
                 Pay Now
@@ -247,7 +241,7 @@ export function Dashboard() {
                 Complete payment to unlock your personalized study roadmap and start learning
               </p>
               <Button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={() => navigate('/dashboard/pay')}
                 className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
               >
                 <Crown className="w-4 h-4 mr-2" />
@@ -425,7 +419,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => isPaid ? setCurrentPage('roadmap') : setShowPaymentModal(true)}
+            onClick={() => isPaid ? setCurrentPage('roadmap') : navigate('/dashboard/pay')}
           >
             <Map className="w-6 h-6 text-[#CCFF00]" />
             <span className="text-xs">Roadmap</span>
@@ -433,7 +427,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => isPaid ? setCurrentPage('catalog') : setShowPaymentModal(true)}
+            onClick={() => isPaid ? setCurrentPage('catalog') : navigate('/dashboard/pay')}
           >
             <BookOpen className="w-6 h-6 text-[#3B82F6]" />
             <span className="text-xs">Practice</span>
@@ -441,7 +435,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => isPaid ? setCurrentPage('tasks') : setShowPaymentModal(true)}
+            onClick={() => isPaid ? setCurrentPage('tasks') : navigate('/dashboard/pay')}
           >
             <Award className="w-6 h-6 text-[#F59E0B]" />
             <span className="text-xs">Tasks</span>
@@ -456,13 +450,6 @@ export function Dashboard() {
           </Button>
         </div>
       </motion.div>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={handlePaymentSuccess}
-      />
 
       {/* Referral Panel */}
       <ReferralPanel
