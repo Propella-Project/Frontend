@@ -28,10 +28,22 @@ export function PaymentsVerifyPage() {
 
   useEffect(() => {
     const verifyPayment = async () => {
+      // Flutterwave redirect query: ?status=successful&tx_ref=...&transaction_id=...
+      const statusParam = searchParams.get("status");
+      const txRef = searchParams.get("tx_ref");
+      const transactionId = searchParams.get("transaction_id");
+      const referenceParam = searchParams.get("reference");
+
+      if (statusParam && statusParam !== "successful") {
+        setStatus("error");
+        setMessage("Payment was not successful.");
+        setDetail("If you believe this is an error, please contact support.");
+        toast.error("Payment not completed");
+        return;
+      }
+
       const reference =
-        searchParams.get("reference") ||
-        searchParams.get("tx_ref") ||
-        searchParams.get("transaction_id");
+        transactionId ?? txRef ?? referenceParam;
 
       if (!reference) {
         setStatus("error");
@@ -94,23 +106,31 @@ export function PaymentsVerifyPage() {
 
       <motion.div
         className="w-full max-w-[420px] relative z-10"
-        initial={{ opacity: 0, y: 20 }}
+        initial={status === "verifying" ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
       >
         <AnimatePresence mode="wait">
           {status === "verifying" && (
-            <Card className="bg-[#141418] border-[#25252A] shadow-xl">
-              <CardHeader className="pb-2">
-                <div className="w-20 h-20 rounded-2xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center mx-auto">
-                  <Loader2 className="w-10 h-10 text-[#CCFF00] animate-spin" />
-                </div>
-                <h1 className="text-xl font-semibold text-center text-white mt-4">
-                  Verifying payment
-                </h1>
-                <p className="text-center text-[#9CA3AF] text-sm">{message}</p>
-              </CardHeader>
-            </Card>
+            <motion.div
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Card className="bg-[#141418] border-[#25252A] shadow-xl">
+                <CardHeader className="pb-2 pt-8">
+                  <div className="w-20 h-20 rounded-2xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center mx-auto">
+                    <Loader2 className="w-10 h-10 text-[#CCFF00] animate-spin" aria-hidden />
+                  </div>
+                  <h1 className="text-xl font-semibold text-center text-white mt-4">
+                    Verifying your payment
+                  </h1>
+                  <p className="text-center text-[#9CA3AF] text-sm mt-1">
+                    Please wait while we confirm your subscription…
+                  </p>
+                </CardHeader>
+              </Card>
+            </motion.div>
           )}
 
           {status === "success" && (
