@@ -89,7 +89,7 @@ function App() {
         />
 
         {/* ============================================================
-            PAYMENT VERIFY (Public - Flutterwave callback; reference from query, POST verify-subscription)
+            PAYMENT VERIFY (Public - Flutterwave callback; tx_ref in query, POST verify-subscription with { tx_ref })
             ============================================================ */}
         <Route path="/payments/verify" element={<PaymentsVerifyLayout />} />
         <Route path="/verify" element={<VerifyLayout />} />

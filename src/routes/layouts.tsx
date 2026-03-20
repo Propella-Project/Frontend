@@ -110,7 +110,7 @@ export function VerifyLayout() {
 
 /**
  * Payments Verify Layout - Flutterwave callback at /payments/verify
- * Reads reference from query, POSTs to /api/accounts/verify-subscription/
+ * Reads tx_ref from query, POSTs { tx_ref } to API_BASE_URL + /accounts/verify-subscription/
  */
 export function PaymentsVerifyLayout() {
   return (

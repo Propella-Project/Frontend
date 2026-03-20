@@ -1,9 +1,18 @@
 /**
  * Cookie utilities for cross-subdomain authentication
- * 
- * Cookies are shared across all *.propella.ng subdomains
- * when set with Domain=.propella.ng
+ *
+ * On *.propella.ng → Domain=.propella.ng
+ * On other hosts (e.g. *.vercel.app) → host-only cookies (omit Domain) so the browser stores them.
  */
+
+/** Domain for Set-Cookie; undefined = host-only (required for non-propella.ng deploys) */
+export function getCookieDomain(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return undefined;
+  if (host.endsWith("propella.ng")) return ".propella.ng";
+  return undefined;
+}
 
 /**
  * Get a cookie value by name
@@ -22,43 +31,53 @@ export function getCookie(name: string): string | null {
 }
 
 /**
- * Set a cookie with cross-subdomain support
+ * Set a cookie (cross-subdomain on propella.ng, host-only elsewhere)
  */
 export function setCookie(
   name: string,
   value: string,
   days: number = 7,
-  domain: string = ".propella.ng"
+  domain?: string
 ): void {
   if (typeof document === "undefined") return;
-  
+
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-  
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;domain=${domain};SameSite=Lax`;
+
+  const domainAttr = domain ?? getCookieDomain();
+  const domainPart = domainAttr ? `;domain=${domainAttr}` : "";
+  const secure =
+    typeof window !== "undefined" && window.location.protocol === "https:"
+      ? ";Secure"
+      : "";
+
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax${secure}${domainPart}`;
 }
 
-/**
- * Delete a cookie
- */
-export function deleteCookie(name: string, domain: string = ".propella.ng"): void {
+/** Delete cookie for host-only and, if applicable, .propella.ng */
+export function deleteCookie(name: string, domain?: string): void {
   if (typeof document === "undefined") return;
-  
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${domain}`;
+
+  const expired = "expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+  document.cookie = `${name}=;${expired}`;
+
+  const d = domain ?? getCookieDomain();
+  if (d) {
+    document.cookie = `${name}=;${expired};domain=${d}`;
+  }
+  if (d !== ".propella.ng") {
+    document.cookie = `${name}=;${expired};domain=.propella.ng`;
+  }
 }
 
 /**
- * Get auth token (cookie with 24h expiry is source of truth; when missing, return null)
+ * Prefer cookies; fall back to in-tab access token (do not clear LS here — logout does that).
  */
 export function getAuthToken(): string | null {
   const cookieToken = getCookie("access_token") || getCookie("auth_token");
   if (cookieToken) return cookieToken;
-  if (typeof localStorage !== "undefined") {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("propella_token");
-  }
-  return null;
+  if (typeof localStorage === "undefined") return null;
+  return localStorage.getItem("propella_token") || localStorage.getItem("access_token");
 }
 
 /**

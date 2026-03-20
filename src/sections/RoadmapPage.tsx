@@ -16,12 +16,15 @@ import {
   Target,
   AlertCircle,
   Crown,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export function RoadmapPage() {
   const navigate = useNavigate();
-  const { roadmap, user, subjects, startQuiz, completeTask } = useStore();
+  const { roadmap, user, subjects, startQuiz, completeTask, generateRoadmap, isGeneratingRoadmap } =
+    useStore();
   const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
 
   if (!user) return null;
@@ -54,6 +57,24 @@ export function RoadmapPage() {
     return subject?.name || "Unknown";
   };
 
+  const handleGenerateRoadmap = async () => {
+    try {
+      await generateRoadmap();
+      if (useStore.getState().roadmap.length > 0) {
+        toast.success("Your personalized roadmap is ready!");
+      }
+    } catch {
+      toast.error("Could not generate roadmap. Please try again.");
+    }
+  };
+
+  const progressPct =
+    roadmap.length > 0
+      ? Math.round(
+          (roadmap.filter((d) => d.isCompleted).length / roadmap.length) * 100,
+        )
+      : 0;
+
   return (
     <div className="min-h-screen bg-[#0F0F11] p-4 pb-24">
       {/* Payment Required Banner - Show if not paid */}
@@ -85,6 +106,40 @@ export function RoadmapPage() {
         </motion.div>
       )}
 
+      {/* Paid user: roadmap must be generated explicitly */}
+      {isPaid && !isCheckingPayment && roadmap.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Card className="bg-[#1A1A1E] border-[#6D28D9]/40 p-6 text-center">
+            <Sparkles className="w-10 h-10 text-[#CCFF00] mx-auto mb-3" />
+            <h2 className="text-lg font-bold text-white mb-2">Generate your study roadmap</h2>
+            <p className="text-sm text-[#9CA3AF] mb-4 max-w-md mx-auto">
+              We’ll build your personalized day-by-day plan from your profile and subjects. You can regenerate anytime from here.
+            </p>
+            <Button
+              onClick={() => void handleGenerateRoadmap()}
+              disabled={isGeneratingRoadmap}
+              className="bg-[#6D28D9] hover:bg-[#5B21B6] text-white min-w-[200px]"
+            >
+              {isGeneratingRoadmap ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate my roadmap
+                </>
+              )}
+            </Button>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -93,12 +148,14 @@ export function RoadmapPage() {
       >
         <h1 className="text-2xl font-bold mb-1">Your Flight Path 🚀</h1>
         <p className="text-[#9CA3AF]">
-          {roadmap.filter((d) => d.isCompleted).length} of {roadmap.length} days
-          completed
+          {roadmap.length === 0
+            ? "No roadmap yet — generate one to get started."
+            : `${roadmap.filter((d) => d.isCompleted).length} of ${roadmap.length} days completed`}
         </p>
       </motion.header>
 
       {/* Overall Progress */}
+      {roadmap.length > 0 && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -108,21 +165,9 @@ export function RoadmapPage() {
         <Card className="bg-[#1A1A1E] border-[#2A2A2E] p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-[#9CA3AF]">Overall Progress</span>
-            <span className="text-sm font-bold text-[#CCFF00]">
-              {Math.round(
-                (roadmap.filter((d) => d.isCompleted).length / roadmap.length) *
-                  100,
-              )}
-              %
-            </span>
+            <span className="text-sm font-bold text-[#CCFF00]">{progressPct}%</span>
           </div>
-          <Progress
-            value={
-              (roadmap.filter((d) => d.isCompleted).length / roadmap.length) *
-              100
-            }
-            className="h-2"
-          />
+          <Progress value={progressPct} className="h-2" />
           <div className="flex items-center gap-4 mt-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#10B981]" />
@@ -139,8 +184,10 @@ export function RoadmapPage() {
           </div>
         </Card>
       </motion.div>
+      )}
 
       {/* Timeline */}
+      {roadmap.length > 0 && (
       <div className="relative">
         {/* Timeline Line */}
         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#2A2A2E]" />
@@ -367,8 +414,10 @@ export function RoadmapPage() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Revision Period Notice */}
+      {roadmap.length > 0 && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -391,6 +440,7 @@ export function RoadmapPage() {
           </div>
         </Card>
       </motion.div>
+      )}
 
       {/* Locked Content Overlay - Show if not paid */}
       {!isPaid && !isCheckingPayment && (

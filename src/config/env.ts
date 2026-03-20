@@ -1,6 +1,8 @@
 // Environment Configuration
-// VITE_API_BASE_URL = backend base URL (e.g. https://propella-api.vercel.app or .../api)
-const rawApiBase = (import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api").replace(/\/$/, "");
+// VITE_API_BASE_URL — production example: https://propella-api.vercel.app/api
+// If your URL already ends with /api, it is used as-is; otherwise /api is appended.
+const rawFromEnv = (import.meta.env.VITE_API_BASE_URL || "https://propella-api.vercel.app/api").trim();
+const rawApiBase = rawFromEnv.replace(/\/$/, "");
 const API_BASE_URL = rawApiBase.endsWith("/api") ? rawApiBase : `${rawApiBase}/api`;
 
 export const ENV = {

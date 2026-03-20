@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { toast } from "sonner";
 import type {
   User,
   Subject,
@@ -226,8 +225,6 @@ export const useStore = create<AppState>()(
             isOnboardingComplete: true,
             currentPage: "dashboard",
           });
-          // Generate roadmap after onboarding
-          get().generateRoadmap();
         }
       },
 
@@ -556,7 +553,7 @@ export const useStore = create<AppState>()(
       },
 
       completeQuiz: async () => {
-        const { currentQuiz, user, quizHistory, selectedSubjects } = get();
+        const { currentQuiz, user, quizHistory } = get();
         if (!currentQuiz) return;
 
         let correct = 0;
@@ -654,15 +651,7 @@ export const useStore = create<AppState>()(
           }
         }
 
-        // If this is a diagnostic quiz, regenerate the roadmap with actual results
-        if (currentQuiz.type === "diagnostic" && selectedSubjects.length > 0) {
-          try {
-            await get().generateRoadmapWithAI();
-            toast.success("Your personalized roadmap has been updated based on your quiz results!");
-          } catch (error) {
-            console.error("[Store] Failed to regenerate roadmap after diagnostic:", error);
-          }
-        }
+        // Roadmap is generated only when the user taps "Generate my roadmap" on the Roadmap page.
 
         // Update current day if this was a daily quiz
         const currentDay = get().roadmap.find(
