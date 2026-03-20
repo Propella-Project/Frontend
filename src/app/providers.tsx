@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState, useCallback } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/sonner";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
@@ -355,6 +356,7 @@ export function Providers({ children }: ProvidersProps) {
         console.error("[ErrorBoundary] Global error:", error, errorInfo);
       }}
     >
+      <HelmetProvider>
       <MswProvider>
         <AppInitializer>
           <AuthProvider>
@@ -374,6 +376,7 @@ export function Providers({ children }: ProvidersProps) {
           </AuthProvider>
         </AppInitializer>
       </MswProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 }

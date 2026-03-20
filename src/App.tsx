@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { SeoHead } from "@/components/seo/SeoHead";
 
 // Route Guards (small, keep in main chunk)
 import {
@@ -44,6 +45,7 @@ function App() {
           </div>
         }
       >
+        <SeoHead />
         <Routes>
         {/* ============================================================
             AUTH ROUTES (Public - but redirects if already authenticated)
