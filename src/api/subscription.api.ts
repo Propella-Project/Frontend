@@ -89,6 +89,7 @@ export interface SubscriptionResponse {
 }
 
 export interface UserSubscriptionStatus {
+  active?: boolean;
   has_active_subscription: boolean;
   is_active?: boolean;  // alias for has_active_subscription
   subscription: SubscriptionResponse | null;
@@ -174,22 +175,36 @@ export const subscriptionApi = {
     }
     try {
       const response = await apiClient.get<{
+        active?: boolean;
         has_active_subscription?: boolean;
+        is_active?: boolean;
+        plan?: string;
         subscription?: SubscriptionResponse | null;
         days_remaining?: number;
         expires_at?: string;
       }>(ENDPOINTS.subscriptions.status);
       const data = response.data;
-      const hasActive = !!data?.has_active_subscription;
+      const hasActive = Boolean(
+        data?.active ??
+        data?.has_active_subscription ??
+        data?.is_active ??
+        data?.subscription?.status === "active"
+      );
       return {
+        active: hasActive,
         has_active_subscription: hasActive,
+        is_active: hasActive,
+        plan: data?.plan,
         subscription: data?.subscription ?? null,
         days_remaining: data?.days_remaining ?? 0,
         expires_at: data?.expires_at,
       };
-    } catch {
+    } catch (error) {
+      console.error("[Subscription] Failed to fetch subscription status:", error);
       return {
+        active: false,
         has_active_subscription: false,
+        is_active: false,
         subscription: null,
         days_remaining: 0,
       };
