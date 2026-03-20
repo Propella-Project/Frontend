@@ -59,9 +59,10 @@ export function SettingsDropdown() {
   const [selectedTutor, setSelectedTutor] = useState(ai_tutor_selected);
   const [voiceEnabled, setVoiceEnabled] = useState(ai_voice_enabled);
 
-  // Load persisted AI Tutor selection
+  // Load persisted AI Tutor selection (tab-scoped)
   useEffect(() => {
-    const savedTutor = localStorage.getItem("aiTutor");
+    const savedTutor =
+      sessionStorage.getItem("aiTutor") || localStorage.getItem("aiTutor");
     if (savedTutor) {
       setSelectedTutor(savedTutor);
     }
@@ -98,18 +99,11 @@ export function SettingsDropdown() {
     });
 
     if (success) {
-      // Update localStorage to persist changes
-      const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-      const updatedUser = {
-        ...currentUser,
-        nickname: newNickname,
-        ai_tutor_selected: selectedTutor,
-        ai_voice_enabled: voiceEnabled,
-      };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-
-      // Persist AI Tutor selection separately
-      localStorage.setItem("aiTutor", selectedTutor);
+      try {
+        sessionStorage.setItem("aiTutor", selectedTutor);
+      } catch {
+        /* ignore */
+      }
 
       toast.success("Profile updated successfully!");
       setIsProfileOpen(false);
@@ -127,11 +121,20 @@ export function SettingsDropdown() {
     localStorage.removeItem("user");
     localStorage.removeItem("referralCode");
     localStorage.removeItem("aiTutor");
-    
-    // Clear persisted stores (this will reset onboarding state too)
     localStorage.removeItem("propella-storage");
     localStorage.removeItem("propella-user-store");
     localStorage.removeItem("propella-app-store");
+    try {
+      sessionStorage.removeItem("propella-user-store");
+      sessionStorage.removeItem("propella_access_token");
+      sessionStorage.removeItem("propella_refresh_token");
+      sessionStorage.removeItem("refresh_token");
+      sessionStorage.removeItem("aiTutor");
+      sessionStorage.removeItem("propella_user");
+      sessionStorage.removeItem("propella_session_expiry");
+    } catch {
+      /* ignore */
+    }
 
     // Clear user state
     clearUser();

@@ -151,13 +151,13 @@ export const subscriptionApi = {
     };
   },
 
-  // Verify subscription (How_it_works.md §14) - body: { reference }
+  // Verify subscription – body: { tx_ref } (Flutterwave transaction reference)
   verifySubscription: async (
-    transactionId: string,
+    txRef: string,
     _planId?: string,
   ): Promise<VerifySubscriptionResponse> => {
     const response = await apiClient.post(ENDPOINTS.subscriptions.verify, {
-      reference: transactionId,
+      tx_ref: txRef,
     });
     return response.data;
   },

@@ -60,8 +60,6 @@ export function Login() {
       setCookie("auth_token", access, 1);
       setCookie("refresh_token", refresh, 7);
 
-      localStorage.setItem("propella_refresh_token", refresh);
-      localStorage.setItem("refresh_token", refresh);
       authApi.setRefreshToken(refresh);
       authApi.setToken(access);
 
@@ -76,7 +74,6 @@ export function Login() {
           nickname: nicknameVal,
         };
         setUser(userData);
-        localStorage.setItem("propella_user_id", String(userFromApi.id));
         authApi.saveUserAfterLogin({ id: userFromApi.id, email: emailVal, ...userFromServer });
       } else {
         try {
@@ -89,7 +86,6 @@ export function Login() {
               nickname: me.nickname ?? me.username ?? email.split("@")[0],
             };
             setUser(userData);
-            localStorage.setItem("propella_user_id", String(me.id));
             authApi.saveUserAfterLogin({ id: me.id, email: me.email, username: me.username, nickname: me.nickname });
           } else {
             setUser({ email, nickname: email.split("@")[0] });

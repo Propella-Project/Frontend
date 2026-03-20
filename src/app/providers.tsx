@@ -23,7 +23,7 @@ const initMswInDev = async () => {
 // Load AI Tutor from localStorage and sync with user store
 const loadPersistedTutor = () => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("aiTutor");
+  return sessionStorage.getItem("aiTutor") || localStorage.getItem("aiTutor");
 };
 
 interface ProvidersProps {
@@ -242,7 +242,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
           };
           setUser(userData);
           setAuthenticated(true);
-          localStorage.setItem("propella_user_id", String(stored.id));
           const savedTutor = loadPersistedTutor();
           if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
           return;

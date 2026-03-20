@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { UserProfile } from "@/types/api.types";
 // import referralApi from "@/api/referral.api";
 // import { dashboardApi } from "@/api/dashboard.api";
@@ -95,11 +95,17 @@ export const useUserStore = create<UserState>()(
           ...initialState,
           isAuthenticated: false,
         });
-        // Clear both dashboard and landing page token names
         localStorage.removeItem("propella_token");
         localStorage.removeItem("access_token");
         localStorage.removeItem("propella_refresh_token");
         localStorage.removeItem("refresh_token");
+        try {
+          sessionStorage.removeItem("propella_access_token");
+          sessionStorage.removeItem("propella_refresh_token");
+          sessionStorage.removeItem("refresh_token");
+        } catch {
+          /* ignore */
+        }
       },
       
       // Referral actions
@@ -204,6 +210,7 @@ export const useUserStore = create<UserState>()(
         referralPoints: state.referralPoints,
         totalReferrals: state.totalReferrals,
       }),
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );
