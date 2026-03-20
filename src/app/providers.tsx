@@ -229,9 +229,27 @@ function AppInitializer({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If we have tokens, try to restore session from stored user (no /accounts/me call; 24h expiry)
+      // If we have token, restore session from backend current user endpoint
       if (token) {
         const { authApi } = await import("@/api/auth.api");
+        try {
+          const me = await authApi.getMe();
+          if (me) {
+            const userData = {
+              user_id: String(me.id),
+              email: me.email,
+              username: me.username,
+              nickname: me.nickname ?? me.username ?? "",
+            };
+            setUser(userData);
+            setAuthenticated(true);
+            const savedTutor = loadPersistedTutor();
+            if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
+            return;
+          }
+        } catch {
+          // Fallback to stored user snapshot when current_user call fails
+        }
         const stored = authApi.getStoredUser();
         if (stored) {
           const userData = {
