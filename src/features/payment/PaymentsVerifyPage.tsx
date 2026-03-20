@@ -38,7 +38,7 @@ export function PaymentsVerifyPage() {
 
     const verifyPayment = async () => {
       const statusParam = searchParams.get("status");
-      const txRef = searchParams.get("tx_ref");
+      const transaction_id = searchParams.get("transaction_id");
 
       // Only block on explicit failure/cancel — do not require status === "successful"
       // (Flutterwave may use different casing or omit status; charge success is confirmed by backend.)
@@ -50,9 +50,9 @@ export function PaymentsVerifyPage() {
         return;
       }
 
-      if (!txRef || !txRef.trim()) {
+      if (!transaction_id || !transaction_id.trim()) {
         setStatus("error");
-        setMessage("No transaction reference (tx_ref) found.");
+        setMessage("No transaction ID found.");
         setDetail("If you just completed a payment, please contact support with your receipt.");
         toast.error("Payment verification failed");
         return;
@@ -71,7 +71,7 @@ export function PaymentsVerifyPage() {
         const verifyUrl = `${ENV.API_BASE_URL}${ENDPOINTS.subscriptions.verify}`;
         const { data } = await apiClient.post<{ message?: string; error?: string }>(
           verifyUrl,
-          { reference: txRef.trim() },
+          { transaction_id: transaction_id },
         { headers: { 'Content-Type': 'application/json',Authorization: `Bearer ${token}` } }
         );
 

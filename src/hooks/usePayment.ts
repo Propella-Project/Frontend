@@ -5,7 +5,7 @@ import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { getToken } from "@/api/client";
+import { getToken, getErrorMessage } from "@/api/client";
 
 interface UsePaymentReturn {
   loading: boolean;
@@ -259,12 +259,20 @@ export function usePaymentStatus() {
     setIsLoading(true);
     try {
       const status = await subscriptionApi.getSubscriptionStatus();
+      const hasActive = Boolean(
+        status.active ??
+        status.has_active_subscription ??
+        status.is_active ??
+        status.subscription?.status === "active"
+      );
       setSubscriptionStatus({
-        hasActive: status.has_active_subscription,
+        hasActive,
         daysRemaining: status.days_remaining,
       });
-      return status.has_active_subscription;
+      return hasActive;
     } catch (err) {
+      const message = getErrorMessage(err);
+      console.error("[Payment] Subscription status check failed:", message, err);
       setSubscriptionStatus({ hasActive: false, daysRemaining: 0 });
       return false;
     } finally {

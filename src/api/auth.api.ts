@@ -42,6 +42,9 @@ export interface StoredUser {
   email: string;
   username?: string;
   nickname?: string;
+  role?: string;
+  is_email_verified?: boolean;
+  onboarded?: boolean;
 }
 
 function getStoredUserInternal(): StoredUser | null {
@@ -301,14 +304,34 @@ export const authApi = {
     );
   },
 
-  // Authenticated = valid token + stored user not expired (no /accounts/me call)
+  // Authenticated = valid token + stored user not expired
   isAuthenticated: (): boolean => {
     return !!(getAuthTokenFromCookies() && getStoredUserInternal());
   },
 
-  // Get current user from storage only (server endpoint /accounts/me not used; 24h expiry applied)
+  // Get current user from backend (/accounts/current_user/) with Bearer token
   getMe: async (): Promise<StoredUser | null> => {
-    return Promise.resolve(getStoredUserInternal());
+    const response = await apiClient.get<{
+      id: number;
+      username: string;
+      email: string;
+      role?: string;
+      is_email_verified?: boolean;
+      onboarded?: boolean;
+      nickname?: string;
+    }>(ENDPOINTS.auth.currentUser);
+    const data = response.data;
+    const user: StoredUser = {
+      id: data.id,
+      email: data.email,
+      username: data.username,
+      nickname: data.nickname ?? data.username,
+      role: data.role,
+      is_email_verified: data.is_email_verified,
+      onboarded: data.onboarded,
+    };
+    authApi.saveUserAfterLogin(user);
+    return user;
   },
 
   // Edit user (How_it_works.md §8) PUT /accounts/edit-user/
