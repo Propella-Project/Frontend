@@ -16,7 +16,7 @@ export const ENDPOINTS = {
   auth: {
     login: `/accounts/login/`,
     refresh: `/accounts/token/refresh/`,
-    me: `/accounts/me/`,
+    currentUser: `/accounts/current_user/`,
     register: `/accounts/register/`,
     verifyEmail: `/accounts/verify-email/`,
     resendCode: `/accounts/resend-code/`,
@@ -48,6 +48,7 @@ export const ENDPOINTS = {
     plans: `/accounts/plans/`,
     paymentConfig: `/accounts/payment-config/`,
     subscribe: `/accounts/subscribe/`,
+    /** POST body: { tx_ref } – full URL = VITE_API_BASE_URL (via env) + this path */
     verify: `/accounts/verify-subscription/`,
     /** GET: returns { has_active_subscription, subscription?, days_remaining? }; used to gate Roadmap/Tutor/Practice */
     status: `/accounts/subscription-status/`,

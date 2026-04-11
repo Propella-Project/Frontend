@@ -1,0 +1,18 @@
+# Public app: allow indexing of marketing/auth pages; discourage crawling of authenticated areas.
+# Update the Sitemap URL to match VITE_SITE_URL / your production domain.
+
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /payments
+Disallow: /verify
+Disallow: /payment
+Disallow: /reset-password
+
+# Optional: limit AI training crawlers (honor if supported)
+User-agent: GPTBot
+Disallow: /dashboard
+Disallow: /onboarding
+
+Sitemap: https://propella.ng/sitemap.xml

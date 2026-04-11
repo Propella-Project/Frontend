@@ -16,17 +16,23 @@ const getCookie = (name: string): string | null => {
   return null;
 };
 
-// Access token: cookie is source of truth (24h); when cookie missing, treat as logged out
+// Access token: cookie → sessionStorage → legacy localStorage
 const getAuthTokenFromCookies = (): string | null => {
   if (typeof window === "undefined") return null;
   const cookieToken = getCookie("access_token") || getCookie("auth_token");
   if (cookieToken) return cookieToken;
-  localStorage.removeItem("propella_token");
-  localStorage.removeItem("access_token");
-  return null;
+  try {
+    const s = sessionStorage.getItem("propella_access_token");
+    if (s) return s;
+  } catch {
+    /* ignore */
+  }
+  return (
+    localStorage.getItem("propella_token") || localStorage.getItem("access_token")
+  );
 };
 
-// User + session storage (localStorage is effective; 24h TTL matches access token)
+// User snapshot: sessionStorage only (tab-scoped; avoids long-lived PII in localStorage)
 const STORAGE_KEY_USER = "propella_user";
 const STORAGE_KEY_EXPIRY = "propella_session_expiry";
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -36,18 +42,21 @@ export interface StoredUser {
   email: string;
   username?: string;
   nickname?: string;
+  role?: string;
+  is_email_verified?: boolean;
+  onboarded?: boolean;
 }
 
 function getStoredUserInternal(): StoredUser | null {
   if (typeof window === "undefined") return null;
   try {
-    const expiryRaw = localStorage.getItem(STORAGE_KEY_EXPIRY);
-    const userRaw = localStorage.getItem(STORAGE_KEY_USER);
+    const expiryRaw = sessionStorage.getItem(STORAGE_KEY_EXPIRY);
+    const userRaw = sessionStorage.getItem(STORAGE_KEY_USER);
     if (!expiryRaw || !userRaw) return null;
     const expiry = Number(expiryRaw);
     if (Number.isNaN(expiry) || expiry < Date.now()) {
-      localStorage.removeItem(STORAGE_KEY_USER);
-      localStorage.removeItem(STORAGE_KEY_EXPIRY);
+      sessionStorage.removeItem(STORAGE_KEY_USER);
+      sessionStorage.removeItem(STORAGE_KEY_EXPIRY);
       return null;
     }
     return JSON.parse(userRaw) as StoredUser;
@@ -58,8 +67,8 @@ function getStoredUserInternal(): StoredUser | null {
 
 function clearUserStorage(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY_USER);
-  localStorage.removeItem(STORAGE_KEY_EXPIRY);
+  sessionStorage.removeItem(STORAGE_KEY_USER);
+  sessionStorage.removeItem(STORAGE_KEY_EXPIRY);
 }
 
 export interface LoginPayload {
@@ -151,8 +160,8 @@ export const authApi = {
   saveUserAfterLogin: (user: StoredUser | (Record<string, unknown> & { id: number; email: string })): void => {
     if (typeof window === "undefined") return;
     const expiry = Date.now() + TOKEN_TTL_MS;
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
-    localStorage.setItem(STORAGE_KEY_EXPIRY, String(expiry));
+    sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    sessionStorage.setItem(STORAGE_KEY_EXPIRY, String(expiry));
   },
 
   // Get stored user if not expired; returns null and clears storage when past 24h
@@ -250,19 +259,26 @@ export const authApi = {
     localStorage.removeItem("propella_refresh_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("propella_user_id");
+    try {
+      sessionStorage.removeItem("propella_access_token");
+      sessionStorage.removeItem("propella_refresh_token");
+      sessionStorage.removeItem("refresh_token");
+    } catch {
+      /* ignore */
+    }
   },
 
-  // Sync access token to localStorage (cookie with 24h is set in Login; this is for same-tab reads)
+  // Optional LS copy for clients where host-only cookies are unreliable (cleared on logout).
+  // Prefer cookies set in Login; avoid persisting access token when not needed.
   setToken: (token: string): void => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("propella_token", token);
-    localStorage.setItem("access_token", token);
+    sessionStorage.setItem("propella_access_token", token);
   },
 
-  // Helper to set refresh token (sets both names for compatibility)
   setRefreshToken: (token: string): void => {
-    localStorage.setItem("propella_refresh_token", token);
-    localStorage.setItem("refresh_token", token);
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("propella_refresh_token", token);
+    sessionStorage.setItem("refresh_token", token);
   },
 
   // Helper to get token (checks cookies first for cross-subdomain, then localStorage)
@@ -272,22 +288,50 @@ export const authApi = {
 
   // Helper to get refresh token (checks cookies first, then localStorage)
   getRefreshToken: (): string | null => {
-    // Check cookies first (set by landing page with Domain=.propella.ng)
     const cookieToken = getCookie("refresh_token");
     if (cookieToken) return cookieToken;
-    // Fallback to localStorage
-    return localStorage.getItem("propella_refresh_token") ||
-           localStorage.getItem("refresh_token");
+    try {
+      const s =
+        sessionStorage.getItem("propella_refresh_token") ||
+        sessionStorage.getItem("refresh_token");
+      if (s) return s;
+    } catch {
+      /* ignore */
+    }
+    return (
+      localStorage.getItem("propella_refresh_token") ||
+      localStorage.getItem("refresh_token")
+    );
   },
 
-  // Authenticated = valid token + stored user not expired (no /accounts/me call)
+  // Authenticated = valid token + stored user not expired
   isAuthenticated: (): boolean => {
     return !!(getAuthTokenFromCookies() && getStoredUserInternal());
   },
 
-  // Get current user from storage only (server endpoint /accounts/me not used; 24h expiry applied)
+  // Get current user from backend (/accounts/current_user/) with Bearer token
   getMe: async (): Promise<StoredUser | null> => {
-    return Promise.resolve(getStoredUserInternal());
+    const response = await apiClient.get<{
+      id: number;
+      username: string;
+      email: string;
+      role?: string;
+      is_email_verified?: boolean;
+      onboarded?: boolean;
+      nickname?: string;
+    }>(ENDPOINTS.auth.currentUser);
+    const data = response.data;
+    const user: StoredUser = {
+      id: data.id,
+      email: data.email,
+      username: data.username,
+      nickname: data.nickname ?? data.username,
+      role: data.role,
+      is_email_verified: data.is_email_verified,
+      onboarded: data.onboarded,
+    };
+    authApi.saveUserAfterLogin(user);
+    return user;
   },
 
   // Edit user (How_it_works.md §8) PUT /accounts/edit-user/

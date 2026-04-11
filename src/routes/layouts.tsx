@@ -14,6 +14,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { PaymentCallback } from "@/features/payment/PaymentCallback";
 import { VerifyPage } from "@/features/payment/VerifyPage";
 import { PaymentsVerifyPage } from "@/features/payment/PaymentsVerifyPage";
+import { PayPage } from "@/sections/PayPage";
 
 /**
  * Auth Layout - Minimal layout for auth pages (login, forgot-password, reset-password)
@@ -109,12 +110,24 @@ export function VerifyLayout() {
 
 /**
  * Payments Verify Layout - Flutterwave callback at /payments/verify
- * Reads reference from query, POSTs to /api/accounts/verify-subscription/
+ * Reads tx_ref from query, POSTs { tx_ref } to API_BASE_URL + /accounts/verify-subscription/
  */
 export function PaymentsVerifyLayout() {
   return (
     <div className="min-h-screen bg-[#0A0A0C] text-[#F3F4F6]">
       <PaymentsVerifyPage />
+      <Toaster />
+    </div>
+  );
+}
+
+/**
+ * Pay Page Layout - Full-page subscription checkout at /dashboard/pay
+ */
+export function PayPageLayout() {
+  return (
+    <div className="min-h-screen bg-[#0F0F11] text-[#F3F4F6]">
+      <PayPage />
       <Toaster />
     </div>
   );

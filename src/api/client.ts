@@ -50,43 +50,61 @@ function onTokenRefreshed(newToken: string) {
   refreshSubscribers = [];
 }
 
-// Access token: cookie (24h expiry) is source of truth; when cookie missing, treat as logged out
+/** Access token: cookie → sessionStorage (login) → legacy localStorage. Logout clears all. */
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   const cookieToken = getCookie("access_token") || getCookie("auth_token");
   if (cookieToken) return cookieToken;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(TOKEN_KEY_ALT);
-  return null;
+  try {
+    const fromSession = sessionStorage.getItem("propella_access_token");
+    if (fromSession) return fromSession;
+  } catch {
+    /* ignore */
+  }
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY_ALT);
 }
 
-// Get stored refresh token (checks cookies first for cross-subdomain, then localStorage)
+// Get stored refresh token (cookies → sessionStorage → legacy localStorage)
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  // Check cookies first (set by landing page with Domain=.propella.ng)
   const cookieToken = getCookie("refresh_token");
   if (cookieToken) return cookieToken;
-  // Fallback to localStorage
-  return localStorage.getItem(REFRESH_TOKEN_KEY) ||
-         localStorage.getItem(REFRESH_TOKEN_KEY_ALT);
+  try {
+    const s =
+      sessionStorage.getItem("propella_refresh_token") ||
+      sessionStorage.getItem("refresh_token");
+    if (s) return s;
+  } catch {
+    /* ignore */
+  }
+  return (
+    localStorage.getItem(REFRESH_TOKEN_KEY) ||
+    localStorage.getItem(REFRESH_TOKEN_KEY_ALT)
+  );
 }
 
-// Set tokens (sets both names for compatibility)
+// Set tokens (prefer cookies from Login; this mirrors refresh into session for API client refresh flow)
 export function setTokens(access: string, refresh?: string, userId?: string): void {
   if (typeof window === "undefined") return;
-  // Set both token names for cross-subdomain compatibility
-  localStorage.setItem(TOKEN_KEY, access);
-  localStorage.setItem(TOKEN_KEY_ALT, access);
-  if (refresh) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
-    localStorage.setItem(REFRESH_TOKEN_KEY_ALT, refresh);
+  try {
+    sessionStorage.setItem("propella_access_token", access);
+    if (refresh) {
+      sessionStorage.setItem("propella_refresh_token", refresh);
+      sessionStorage.setItem("refresh_token", refresh);
+    }
+  } catch {
+    /* ignore */
   }
   if (userId) {
-    localStorage.setItem(USER_ID_KEY, userId);
+    try {
+      sessionStorage.setItem(USER_ID_KEY, userId);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
-// Clear tokens (logout) - clears both token names
+// Clear tokens (logout)
 export function clearTokens(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
@@ -94,6 +112,14 @@ export function clearTokens(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY_ALT);
   localStorage.removeItem(USER_ID_KEY);
+  try {
+    sessionStorage.removeItem("propella_access_token");
+    sessionStorage.removeItem("propella_refresh_token");
+    sessionStorage.removeItem("refresh_token");
+    sessionStorage.removeItem(USER_ID_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 // Refresh token function

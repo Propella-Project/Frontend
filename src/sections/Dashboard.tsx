@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store';
 import { useUserStore } from '@/state/user.store';
 import { usePaymentStatus } from '@/hooks/usePayment';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { SettingsDropdown } from '@/features/settings/SettingsDropdown';
-import { PaymentModal } from '@/features/payment/PaymentModal';
 import { ReferralPanel } from '@/components/referrals/ReferralPanel';
 import {
   Flame,
@@ -22,8 +22,6 @@ import {
   BookOpen,
   Star,
   Trophy,
-  Lock,
-  Crown,
   Gift,
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
@@ -39,16 +37,15 @@ export function Dashboard() {
     refreshUserData 
   } = useUserStore();
   
+  const navigate = useNavigate();
   const { isPaid, checkSubscriptionStatus } = usePaymentStatus();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showReferralPanel, setShowReferralPanel] = useState(false);
-  const [isCheckingPayment, setIsCheckingPayment] = useState(true);
 
   // Fetch referral stats and user data on mount
   useEffect(() => {
     fetchReferralStats();
     refreshUserData();
-    checkSubscriptionStatus().finally(() => setIsCheckingPayment(false));
+    checkSubscriptionStatus();
     
     // Check if user just returned from successful payment
     const justPaid = localStorage.getItem("propella_payment_verified");
@@ -97,43 +94,8 @@ export function Dashboard() {
   const rankInfo = RANKS.find((r) => r.name === gamification.rank) || RANKS[0];
   const levelProgress = (gamification.points / gamification.nextLevelPoints) * 100;
 
-  // Handle payment success
-  const handlePaymentSuccess = () => {
-    toast.success("Payment successful! Welcome to PROPELLA!");
-    checkSubscriptionStatus();
-  };
-
   return (
     <div className="min-h-screen bg-[#0F0F11] p-4 pb-24">
-      {/* Payment Required Banner - Show if not paid */}
-      {!isPaid && !isCheckingPayment && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4"
-        >
-          <Card className="bg-gradient-to-r from-[#6D28D9] to-[#4C1D95] border-none p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
-                <Crown className="w-5 h-5 text-[#CCFF00]" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-white">Unlock Full Access</p>
-                <p className="text-xs text-white/70">
-                  Complete payment to access your personalized roadmap
-                </p>
-              </div>
-              <Button
-                onClick={() => setShowPaymentModal(true)}
-                className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold text-sm"
-              >
-                Pay Now
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
-      )}
-
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -217,7 +179,7 @@ export function Dashboard() {
         </Card>
       </motion.div>
 
-      {/* Today's Mission - Locked if not paid */}
+      {/* Today's Mission */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -231,32 +193,8 @@ export function Dashboard() {
           </Badge>
         </div>
 
-        <Card className={`border-none p-5 ${
-          isPaid 
-            ? 'bg-gradient-to-br from-[#6D28D9] to-[#4C1D95]' 
-            : 'bg-[#1A1A1E] border border-[#2A2A2E]'
-        }`}>
-          {!isPaid ? (
-            // Locked State
-            <div className="text-center py-6">
-              <div className="w-16 h-16 bg-[#2A2A2E] rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock className="w-8 h-8 text-[#9CA3AF]" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Roadmap Locked</h3>
-              <p className="text-[#9CA3AF] mb-4 max-w-xs mx-auto">
-                Complete payment to unlock your personalized study roadmap and start learning
-              </p>
-              <Button
-                onClick={() => setShowPaymentModal(true)}
-                className="bg-[#CCFF00] text-[#0F0F11] hover:bg-[#B3E600] font-semibold"
-              >
-                <Crown className="w-4 h-4 mr-2" />
-                Unlock Full Access
-              </Button>
-            </div>
-          ) : (
-            // Unlocked State
-            <>
+        <Card className="border-none p-5 bg-gradient-to-br from-[#6D28D9] to-[#4C1D95]">
+          <>
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-white/80 text-sm mb-1">Ready to launch?</p>
@@ -303,7 +241,6 @@ export function Dashboard() {
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             </>
-          )}
         </Card>
       </motion.div>
 
@@ -425,7 +362,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => isPaid ? setCurrentPage('roadmap') : setShowPaymentModal(true)}
+            onClick={() => isPaid ? setCurrentPage('roadmap') : navigate('/dashboard/pay')}
           >
             <Map className="w-6 h-6 text-[#CCFF00]" />
             <span className="text-xs">Roadmap</span>
@@ -433,7 +370,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => isPaid ? setCurrentPage('catalog') : setShowPaymentModal(true)}
+            onClick={() => isPaid ? setCurrentPage('catalog') : navigate('/dashboard/pay')}
           >
             <BookOpen className="w-6 h-6 text-[#3B82F6]" />
             <span className="text-xs">Practice</span>
@@ -441,7 +378,7 @@ export function Dashboard() {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-auto py-4 border-[#2A2A2E] hover:border-[#6D28D9]"
-            onClick={() => isPaid ? setCurrentPage('tasks') : setShowPaymentModal(true)}
+            onClick={() => isPaid ? setCurrentPage('tasks') : navigate('/dashboard/pay')}
           >
             <Award className="w-6 h-6 text-[#F59E0B]" />
             <span className="text-xs">Tasks</span>
@@ -456,13 +393,6 @@ export function Dashboard() {
           </Button>
         </div>
       </motion.div>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={handlePaymentSuccess}
-      />
 
       {/* Referral Panel */}
       <ReferralPanel

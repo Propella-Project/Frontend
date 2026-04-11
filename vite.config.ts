@@ -13,6 +13,8 @@ export default defineConfig({
     },
   },
   build: {
+    /** Do not emit source maps in production — reduces recoverability of original source from bundles. */
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks(id) {

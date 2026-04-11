@@ -1,6 +1,7 @@
 import apiClient from "./client";
 import aiEngineApi from "./ai-engine.api";
 import { ENDPOINTS } from "@/config/endpoints";
+import { useUserStore } from "@/state/user.store";
 import type { 
   DiagnosticQuestion, 
   QuizResultsPayload,
@@ -105,8 +106,7 @@ export const quizApi = {
         const correct = results.filter(r => r.userAnswer === r.correctAnswer).length;
         const total = results.length;
         
-        // Get user ID from store or localStorage
-        const userId = localStorage.getItem("propella_user_id") || "anonymous";
+        const userId = useUserStore.getState().user_id || "anonymous";
         const subject = results[0]?.subject || "general";
         
         // Fire and forget - don't block on this

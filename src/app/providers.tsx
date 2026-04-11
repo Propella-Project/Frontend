@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState, useCallback } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/sonner";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
@@ -24,7 +25,7 @@ const initMswInDev = async () => {
 // Load AI Tutor from localStorage and sync with user store
 const loadPersistedTutor = () => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("aiTutor");
+  return sessionStorage.getItem("aiTutor") || localStorage.getItem("aiTutor");
 };
 
 interface ProvidersProps {
@@ -230,9 +231,27 @@ function AppInitializer({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If we have tokens, try to restore session from stored user (no /accounts/me call; 24h expiry)
+      // If we have token, restore session from backend current user endpoint
       if (token) {
         const { authApi } = await import("@/api/auth.api");
+        try {
+          const me = await authApi.getMe();
+          if (me) {
+            const userData = {
+              user_id: String(me.id),
+              email: me.email,
+              username: me.username,
+              nickname: me.nickname ?? me.username ?? "",
+            };
+            setUser(userData);
+            setAuthenticated(true);
+            const savedTutor = loadPersistedTutor();
+            if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
+            return;
+          }
+        } catch {
+          // Fallback to stored user snapshot when current_user call fails
+        }
         const stored = authApi.getStoredUser();
         if (stored) {
           const userData = {
@@ -243,7 +262,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
           };
           setUser(userData);
           setAuthenticated(true);
-          localStorage.setItem("propella_user_id", String(stored.id));
           const savedTutor = loadPersistedTutor();
           if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
           return;
@@ -339,6 +357,7 @@ export function Providers({ children }: ProvidersProps) {
         console.error("[ErrorBoundary] Global error:", error, errorInfo);
       }}
     >
+      <HelmetProvider>
       <MswProvider>
         <AppInitializer>
           <AuthProvider>
@@ -358,6 +377,7 @@ export function Providers({ children }: ProvidersProps) {
           </AuthProvider>
         </AppInitializer>
       </MswProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 }
