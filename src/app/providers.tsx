@@ -9,7 +9,7 @@ import { captureReferralData } from "@/utils/referral";
 import { useDailyRoadmapNotification } from "@/state/notification.store";
 // import { useNotifications } from "@/hooks/useSettings";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider } from "@/contexts/AuthContext";
+
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { initMocks } from "@/mocks";
@@ -232,64 +232,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
 
       // If we have tokens, try to restore session from stored user (no /accounts/me call; 24h expiry)
       if (token) {
-<<<<<<< HEAD
-        let shouldClearTokens = true;
-        try {
-          const { authApi } = await import("@/api/auth.api");
-          const me = await authApi.getMe();
-          const userData = {
-            user_id: String((me as any).id),
-            email: (me as any).email,
-            username: (me as any).username,
-            nickname: (me as any).nickname ?? (me as any).username ?? "",
-          };
-          setUser(userData);
-          setAuthenticated(true);
-          localStorage.setItem("propella_user_id", String((me as any).id));
-          if ((me as any).email) localStorage.setItem("propella_user_email", (me as any).email);
-          if ((me as any).nickname) localStorage.setItem("propella_user_nickname", (me as any).nickname);
-          console.log("[AppInitializer] Session restored from token");
-          return;
-        } catch (err: any) {
-          // Don't immediately clear tokens on 404 (endpoint missing) or other non-auth errors.
-          const status = err?.response?.status;
-          if (status === 401) {
-            // Token invalid or expired - proceed to clear below
-            console.log('[AppInitializer] Token invalid or expired (401)');
-            shouldClearTokens = true;
-          } else if (status === 404) {
-            console.warn('[AppInitializer] /accounts/me returned 404 - backend may not expose this endpoint. Falling back to persisted user.');
-            shouldClearTokens = false;
-            const storedUserId = localStorage.getItem('propella_user_id');
-            const storedEmail = localStorage.getItem('propella_user_email');
-            const storedNickname = localStorage.getItem('propella_user_nickname');
-            if (storedUserId) {
-              setUser({ user_id: storedUserId, email: storedEmail ?? undefined, nickname: storedNickname ?? (storedEmail ? storedEmail.split('@')[0] : '') });
-              setAuthenticated(true);
-              return;
-            }
-            // No persisted user to fall back to - keep tokens but don't clear them
-            return;
-          } else {
-            console.warn('[AppInitializer] getMe failed with non-auth error, preserving tokens where possible:', err);
-            shouldClearTokens = false;
-            const storedUserId = localStorage.getItem('propella_user_id');
-            const storedEmail = localStorage.getItem('propella_user_email');
-            const storedNickname = localStorage.getItem('propella_user_nickname');
-            if (storedUserId) {
-              setUser({ user_id: storedUserId, email: storedEmail ?? undefined, nickname: storedNickname ?? (storedEmail ? storedEmail.split('@')[0] : '') });
-              setAuthenticated(true);
-              return;
-            }
-          }
-
-          if (shouldClearTokens) {
-            // allow fallthrough to clearing tokens below
-          } else {
-            // don't clear tokens; continue without altering auth state
-            return;
-          }
-=======
         const { authApi } = await import("@/api/auth.api");
         const stored = authApi.getStoredUser();
         if (stored) {
@@ -305,7 +247,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
           const savedTutor = loadPersistedTutor();
           if (savedTutor) updateProfile({ ai_tutor_selected: savedTutor });
           return;
->>>>>>> 1e0b879f1f49b827a1978f9aa7181fc830322351
         }
         authApi.clearUserStorage();
       }
@@ -315,15 +256,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
         clearUser();
       }
       setAuthenticated(false);
-<<<<<<< HEAD
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("propella_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("propella_user_id");
-      localStorage.removeItem("propella_user_email");
-      localStorage.removeItem("propella_user_nickname");
-=======
       try {
         const { authApi } = await import("@/api/auth.api");
         authApi.clearUserStorage();
@@ -331,7 +263,6 @@ function AppInitializer({ children }: { children: ReactNode }) {
       } catch {
         // ignore
       }
->>>>>>> 1e0b879f1f49b827a1978f9aa7181fc830322351
     } catch (error) {
       console.error("[AppInitializer] Initialization failed:", error);
       setInitError(error instanceof Error ? error : new Error("Initialization failed"));
@@ -410,23 +341,6 @@ export function Providers({ children }: ProvidersProps) {
     >
       <MswProvider>
         <AppInitializer>
-<<<<<<< HEAD
-          <NotificationInitializer>
-            <AuthProvider>
-              {children}
-              <Toaster 
-                position="top-center"
-                toastOptions={{
-                  style: {
-                    background: "#1A1A1E",
-                    border: "1px solid #2A2A2E",
-                    color: "#F3F4F6",
-                  },
-                }}
-              />
-            </AuthProvider>
-          </NotificationInitializer>
-=======
           <AuthProvider>
             <NotificationInitializer>
               {children}
@@ -442,7 +356,6 @@ export function Providers({ children }: ProvidersProps) {
             />
             </NotificationInitializer>
           </AuthProvider>
->>>>>>> 1e0b879f1f49b827a1978f9aa7181fc830322351
         </AppInitializer>
       </MswProvider>
     </ErrorBoundary>

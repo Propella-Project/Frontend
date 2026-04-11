@@ -9,7 +9,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useUserStore } from "@/state/user.store";
 import { useAppStore } from "@/state/app.store";
 import { ENV } from "@/config/env";
-import { authApi } from "@/api/auth.api";
+// import { authApi } from "@/api/auth.api";
 
 // User type
 export interface User {
@@ -62,42 +62,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, user_id, nickname, username, storeEmail]);
 
-<<<<<<< HEAD
-  // Try to fetch user data from backend and sync to store (uses authApi which wraps axios)
-  const refreshUser = async (): Promise<void> => {
-    try {
-      const userData = await authApi.getMe();
-      // Map backend shape to local User type (id -> string)
-      const mapped: User = {
-        id: String((userData as any).id),
-        email: (userData as any).email ?? "",
-        username: (userData as any).username,
-        nickname: (userData as any).nickname,
-        first_name: (userData as any).first_name,
-        last_name: (userData as any).last_name,
-        referral_code: (userData as any).referral_code,
-        referral_points: (userData as any).referral_points,
-        total_referrals: (userData as any).total_referrals,
-        is_verified: (userData as any).is_verified,
-        date_joined: (userData as any).date_joined,
-        phone_number: (userData as any).phone_number,
-        avatar: (userData as any).avatar,
-      };
-      setUser(mapped);
-
-      const updates: Parameters<typeof setStoreUser>[0] = {};
-      if ((userData as any)?.id != null) updates.user_id = String((userData as any).id);
-      if ((userData as any)?.email != null) updates.email = (userData as any).email;
-      if ((userData as any)?.username != null) updates.username = (userData as any).username;
-      if ((userData as any)?.nickname != null) updates.nickname = (userData as any).nickname;
-      if (Object.keys(updates).length > 0) setStoreUser(updates);
-    } catch (err: any) {
-      if (err?.response?.status === 401) {
-        console.log("[Auth] Session expired");
-      } else {
-        console.log("[Auth] Could not fetch user data:", err);
-      }
-=======
   // Sync user from storage to store (no /accounts/me – server endpoint not used; 24h expiry in storage)
   const refreshUser = async (): Promise<void> => {
     try {
@@ -119,7 +83,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setStoreUser(updates);
       }
     } catch (err) {
->>>>>>> 1e0b879f1f49b827a1978f9aa7181fc830322351
     }
   };
 
