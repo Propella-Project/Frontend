@@ -28,11 +28,15 @@ export function ForgotPasswordPage() {
       toast.success("Reset link sent to your email!");
       setEmailSent(true);
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { message?: string; error?: string; email?: string[] } } };
-      const errorMessage = 
+      const axiosError = error as {
+        response?: {
+          data?: { message?: string; error?: string; email?: string[] };
+        };
+      };
+      const errorMessage =
         axiosError.response?.data?.message ||
         axiosError.response?.data?.error ||
-        (axiosError.response?.data?.email?.[0]) ||
+        axiosError.response?.data?.email?.[0] ||
         "Failed to send reset link. Please try again.";
       toast.error(errorMessage);
     } finally {
@@ -140,3 +144,5 @@ export function ForgotPasswordPage() {
     </div>
   );
 }
+
+export default ForgotPasswordPage;

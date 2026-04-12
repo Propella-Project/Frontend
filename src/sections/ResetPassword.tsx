@@ -1,24 +1,17 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import {
-  Lock,
-  ArrowLeft,
-  Loader2,
-  CheckCircle,
-} from "lucide-react";
+import { Lock, ArrowLeft, Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { authApi } from "@/api/auth.api";
 import { RocketLogo } from "@/components/logo/RocketLogo";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const uid = searchParams.get("uid");
-  const token = searchParams.get("token");
+  const { uid, token } = useParams<{ uid: string; token: string }>();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -53,12 +46,24 @@ export function ResetPasswordPage() {
 
     setIsLoading(true);
     try {
-      await authApi.resetPassword(uid, token, { new_password: newPassword, confirm_password: confirmPassword });
+      await authApi.resetPassword(uid, token, {
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
       toast.success("Password reset successful!");
       setSuccess(true);
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { message?: string; error?: string; new_password?: string[]; confirm_password?: string[] } } };
-      const errorMessage = 
+      const axiosError = error as {
+        response?: {
+          data?: {
+            message?: string;
+            error?: string;
+            new_password?: string[];
+            confirm_password?: string[];
+          };
+        };
+      };
+      const errorMessage =
         axiosError.response?.data?.message ||
         axiosError.response?.data?.error ||
         axiosError.response?.data?.new_password?.[0] ||
@@ -230,3 +235,5 @@ export function ResetPasswordPage() {
     </div>
   );
 }
+
+export default ResetPasswordPage;
