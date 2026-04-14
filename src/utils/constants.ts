@@ -31,6 +31,10 @@ export const MAX_LEVEL = 100;
 // Streak Configuration
 export const STREAK_WARNING_DAYS = 2; // Warn user if they haven't studied in 2 days
 
+/** Roadmap lesson notes: bundled dummy HTML unless VITE_USE_DUMMY_NOTES=false */
+export const USE_DUMMY_ROADMAP_NOTES =
+  import.meta.env.VITE_USE_DUMMY_NOTES !== "false";
+
 // Payment Configuration
 export const PAYMENT_CURRENCY = "NGN";
 export const PAYMENT_AMOUNT = 5000; // Default amount in Naira

@@ -21,7 +21,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState} from "react";
+import { useState } from "react";
+import { USE_DUMMY_ROADMAP_NOTES } from "@/utils/constants";
+import { getDummyNoteHtml } from "@/utils/dummyNotes";
 
 export function RoadmapPage() {
   const navigate = useNavigate();
@@ -86,10 +88,13 @@ export function RoadmapPage() {
     return null;
   };
 
-  // Fetch note HTML from backend
-  const fetchNoteHtml = async (topicId: string) => {
+  const fetchNoteHtml = async (topicId: string, lessonTitle: string) => {
     setNoteLoading(true);
     try {
+      if (USE_DUMMY_ROADMAP_NOTES) {
+        setNoteHtml(getDummyNoteHtml(topicId, lessonTitle));
+        return;
+      }
       const response = await fetch(`/api/notes/${topicId}`);
       if (!response.ok) throw new Error("Failed to fetch note");
       const data = await response.json();
@@ -114,7 +119,7 @@ export function RoadmapPage() {
     setCurrentDayIndex(dayIndex);
     setCurrentTaskIndex(taskIndex);
     setIsNotePageOpen(true);
-    fetchNoteHtml(task.topicId);
+    fetchNoteHtml(task.topicId, task.title);
   };
 
   // Handle Next button in note page
@@ -148,7 +153,7 @@ export function RoadmapPage() {
       // Open next note
       setCurrentDayIndex(nextDayIndex);
       setCurrentTaskIndex(nextTaskIndex);
-      fetchNoteHtml(nextTask.topicId);
+      fetchNoteHtml(nextTask.topicId, nextTask.title);
     } else {
       // Handle other task types (assignment, reinforcement, etc.)
       completeTask(nextTask.id);
