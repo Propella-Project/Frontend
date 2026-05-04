@@ -15,10 +15,20 @@ import type {
   Badge,
 } from "@/types";
 import { JAMB_SUBJECTS, BADGES, RANKS } from "@/types";
+import type { RoadmapProgress } from "@/types/api.types";
 import { FEATURES } from "@/config/env";
 import aiQuizService from "@/services/aiQuiz.service";
-import aiRoadmapService from "@/services/aiRoadmap.service";
+import aiRoadmapService, {
+  buildQuizResultForAI,
+  calculateSubjectPerformance,
+} from "@/services/aiRoadmap.service";
 import { roadmapApi } from "@/api/roadmap.api";
+import { studyRoadmapApi } from "@/api/study-roadmap.api";
+import {
+  applyPhaseProgressToDays,
+  buildGoalString,
+  mapStudyResponseToRoadmapDays,
+} from "@/services/studyRoadmap.mapper";
 // import aiTutorService from "@/services/aiTutor.service"; // Available for future use
 
 interface AppState {
@@ -32,6 +42,9 @@ interface AppState {
 
   // Roadmap
   roadmap: RoadmapDay[];
+  /** Server `user_roadmaps.id` when `saved` is true */
+  roadmapId: string | null;
+  roadmapProgress: RoadmapProgress | null;
   currentDay: number;
 
   // Quiz
@@ -92,6 +105,8 @@ interface AppState {
   // Roadmap Actions
   generateRoadmap: () => Promise<void>;
   generateRoadmapWithAI: () => Promise<void>;
+  fetchStudyRoadmapCurrent: () => Promise<void>;
+  syncStudyRoadmapCurrentPhase: (phaseOrder: number) => Promise<void>;
   unlockDay: (dayNumber: number) => void;
   completeDay: (dayNumber: number) => void;
 
@@ -177,6 +192,8 @@ export const useStore = create<AppState>()(
       subjects: JAMB_SUBJECTS,
       selectedSubjects: [],
       roadmap: [],
+      roadmapId: null,
+      roadmapProgress: null,
       currentDay: 1,
       currentQuiz: null,
       quizHistory: [],
@@ -401,8 +418,69 @@ export const useStore = create<AppState>()(
 
         set({ isGeneratingRoadmap: true, generationError: null });
 
+        const subjectList =
+          selectedSubjects.length > 0 ? selectedSubjects : user.subjects;
+
         try {
-          // Use the new local roadmap generator (no AI Engine needed)
+          if (FEATURES.ENABLE_AI_ENGINE && subjectList.length > 0) {
+            const examDateStr = new Date(user.examDate)
+              .toISOString()
+              .split("T")[0];
+            const performance = calculateSubjectPerformance(quizHistory);
+            const finalSubjectScores = {
+              ...performance.subjectScores,
+              ...diagnosticResults?.subjectScores,
+            };
+            const quizResult =
+              buildQuizResultForAI(
+                subjectList,
+                quizHistory,
+                finalSubjectScores,
+              );
+            const weakLine =
+              diagnosticResults?.weakTopics?.length
+                ? diagnosticResults.weakTopics.join(", ")
+                : performance.weakTopics.join(", ");
+
+            const res = await studyRoadmapApi.generate({
+              user_id: String(user.id),
+              subjects: subjectList.map((s) => s.name),
+              exam_date: examDateStr,
+              goal: buildGoalString(
+                user.dailyStudyHours,
+                JSON.stringify(finalSubjectScores),
+                weakLine,
+              ),
+              quiz_result: quizResult.length > 0 ? quizResult : undefined,
+            });
+
+            let days = mapStudyResponseToRoadmapDays(
+              res,
+              subjectList,
+              String(user.id),
+              user.dailyStudyHours,
+            );
+            days = applyPhaseProgressToDays(
+              days,
+              res.progress ?? {
+                completed_phase_orders: [],
+                current_phase_order: null,
+              },
+            );
+
+            set({
+              roadmap: days,
+              roadmapId: res.roadmap_id ?? null,
+              roadmapProgress:
+                res.progress ?? {
+                  completed_phase_orders: [],
+                  current_phase_order: null,
+                },
+              isGeneratingRoadmap: false,
+            });
+            return;
+          }
+
           const generatedRoadmap = await roadmapApi.generateAndSaveRoadmap({
             studentId: user.id || "user_1",
             subjects: selectedSubjects,
@@ -413,9 +491,11 @@ export const useStore = create<AppState>()(
             strongTopics: diagnosticResults?.strongTopics,
           });
 
-          set({ 
-            roadmap: generatedRoadmap.days, 
-            isGeneratingRoadmap: false 
+          set({
+            roadmap: generatedRoadmap.days,
+            roadmapId: null,
+            roadmapProgress: null,
+            isGeneratingRoadmap: false,
           });
         } catch (error) {
           set({
@@ -423,6 +503,68 @@ export const useStore = create<AppState>()(
             generationError: "Failed to generate roadmap",
           });
           throw error;
+        }
+      },
+
+      fetchStudyRoadmapCurrent: async () => {
+        const { user, selectedSubjects } = get();
+        if (!user?.examDate || !FEATURES.ENABLE_AI_ENGINE) return;
+
+        const subjects =
+          selectedSubjects.length > 0 ? selectedSubjects : user.subjects;
+        if (!subjects.length) return;
+
+        const examDateStr = new Date(user.examDate).toISOString().split("T")[0];
+
+        try {
+          const res = await studyRoadmapApi.getCurrent(
+            String(user.id),
+            examDateStr,
+          );
+          if (!res?.phases?.length) {
+            set({ roadmap: [], roadmapId: null, roadmapProgress: null });
+            return;
+          }
+
+          let days = mapStudyResponseToRoadmapDays(
+            res,
+            subjects,
+            String(user.id),
+            user.dailyStudyHours,
+          );
+          days = applyPhaseProgressToDays(days, res.progress);
+          set({
+            roadmap: days,
+            roadmapId: res.roadmap_id ?? null,
+            roadmapProgress:
+              res.progress ?? {
+                completed_phase_orders: [],
+                current_phase_order: null,
+              },
+          });
+        } catch {
+          /* keep existing roadmap */
+        }
+      },
+
+      syncStudyRoadmapCurrentPhase: async (phaseOrder: number) => {
+        const { user, roadmapId } = get();
+        if (!FEATURES.ENABLE_AI_ENGINE || !user || !roadmapId) return;
+        try {
+          const progress = await studyRoadmapApi.mergeProgress({
+            user_id: String(user.id),
+            roadmap_id: roadmapId,
+            mark_complete: [],
+            mark_incomplete: [],
+            update_current: true,
+            current_phase_order: phaseOrder,
+          });
+          set((state) => ({
+            roadmap: applyPhaseProgressToDays(state.roadmap, progress),
+            roadmapProgress: progress,
+          }));
+        } catch {
+          /* ignore */
         }
       },
 
@@ -669,6 +811,34 @@ export const useStore = create<AppState>()(
           // Complete day if score >= 50
           if (score >= 50) {
             get().completeDay(currentDay.dayNumber);
+
+            const rid = get().roadmapId;
+            if (FEATURES.ENABLE_AI_ENGINE && user && rid) {
+              const maxOrder = Math.max(
+                ...get().roadmap.map((d) => d.dayNumber),
+                0,
+              );
+              const nextPhase =
+                currentDay.dayNumber < maxOrder
+                  ? currentDay.dayNumber + 1
+                  : null;
+              try {
+                const progress = await studyRoadmapApi.mergeProgress({
+                  user_id: String(user.id),
+                  roadmap_id: rid,
+                  mark_complete: [currentDay.dayNumber],
+                  mark_incomplete: [],
+                  update_current: true,
+                  current_phase_order: nextPhase,
+                });
+                set((state) => ({
+                  roadmap: applyPhaseProgressToDays(state.roadmap, progress),
+                  roadmapProgress: progress,
+                }));
+              } catch {
+                /* server merge optional */
+              }
+            }
           } else {
             // Add reinforcement assignment
             get().addAssignment({
@@ -729,8 +899,57 @@ export const useStore = create<AppState>()(
           tasks: state.tasks.map((t) =>
             t.id === taskId ? { ...t, status: "completed" as const } : t,
           ),
+          roadmap: state.roadmap.map((day) => ({
+            ...day,
+            tasks: day.tasks.map((t) =>
+              t.id === taskId
+                ? { ...t, status: "completed" as const }
+                : t,
+            ),
+          })),
         }));
         get().addPoints(25);
+
+        const st = get();
+        if (!FEATURES.ENABLE_AI_ENGINE || !st.roadmapId || !st.user) return;
+
+        const dayAfter = st.roadmap.find((d) =>
+          d.tasks.some((t) => t.id === taskId),
+        );
+        if (!dayAfter) return;
+        const allDone = dayAfter.tasks.every((t) => t.status === "completed");
+        if (!allDone) return;
+        const quizOk =
+          !dayAfter.quizRequired ||
+          (dayAfter.quizCompleted &&
+            (dayAfter.quizScore ?? 0) >= dayAfter.minimumMasteryRequired);
+        if (!quizOk) return;
+
+        const { roadmapId, user } = st;
+        void (async () => {
+          try {
+            const maxOrder = Math.max(...get().roadmap.map((d) => d.dayNumber), 0);
+            const nextPhase =
+              dayAfter.dayNumber < maxOrder ? dayAfter.dayNumber + 1 : null;
+            const progress = await studyRoadmapApi.mergeProgress({
+              user_id: String(user.id),
+              roadmap_id: roadmapId!,
+              mark_complete: [dayAfter.dayNumber],
+              mark_incomplete: [],
+              update_current: true,
+              current_phase_order: nextPhase,
+            });
+            set((state) => ({
+              roadmap: applyPhaseProgressToDays(state.roadmap, progress),
+              roadmapProgress: progress,
+            }));
+            if (!dayAfter.quizRequired) {
+              get().completeDay(dayAfter.dayNumber);
+            }
+          } catch {
+            /* ignore */
+          }
+        })();
       },
 
       // Assignment Actions
@@ -841,6 +1060,8 @@ export const useStore = create<AppState>()(
           isOnboardingComplete: false,
           selectedSubjects: [],
           roadmap: [],
+          roadmapId: null,
+          roadmapProgress: null,
           currentDay: 1,
           currentQuiz: null,
           quizHistory: [],

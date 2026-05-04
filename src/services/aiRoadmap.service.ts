@@ -27,7 +27,7 @@ interface StudyRecommendationResponseExtended {
 }
 
 // Calculate subject performance from quiz history
-function calculateSubjectPerformance(quizHistory: Quiz[]): {
+export function calculateSubjectPerformance(quizHistory: Quiz[]): {
   subjectScores: Record<string, number>;
   topicPerformance: Record<string, number>;
   weakTopics: string[];
@@ -91,8 +91,8 @@ function calculateSubjectPerformance(quizHistory: Quiz[]): {
   return { subjectScores, topicPerformance, weakTopics, strongTopics, averageTimePerQuestion };
 }
 
-// Convert quiz history to AI Engine format
-function buildQuizResultForAI(
+/** Quiz payload for `POST /study/roadmap` (optional). */
+export function buildQuizResultForAI(
   subjects: Subject[],
   quizHistory: Quiz[],
   subjectScores: Record<string, number>
@@ -164,9 +164,10 @@ export async function generateAIRoadmap(
       
       // Call AI Engine
       const response = await aiEngineApi.generateRoadmap({
-        subjects: subjects.map(s => s.name),
+        user_id: studentId,
+        subjects: subjects.map((s) => s.name),
         exam_date: examDate.toISOString().split("T")[0],
-        goal: `JAMB exam preparation. Daily study: ${dailyStudyHours} hours. Student performance: ${JSON.stringify(finalSubjectScores)}. Focus areas: ${finalWeakTopics.join(', ')}`,
+        goal: `JAMB exam preparation. Daily study: ${dailyStudyHours} hours. Student performance: ${JSON.stringify(finalSubjectScores)}. Focus areas: ${finalWeakTopics.join(", ")}`,
         quiz_result: quizResult.length > 0 ? quizResult : undefined,
       });
 

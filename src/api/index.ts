@@ -13,6 +13,7 @@ export { quizApi } from "./quiz.api";
 export { referralApi } from "./referral.api";
 export { subscriptionApi } from "./subscription.api";
 export { aiEngineApi } from "./ai-engine.api";
+export { studyRoadmapApi } from "./study-roadmap.api";
 
 // Export client utilities
 export {

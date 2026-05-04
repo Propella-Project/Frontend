@@ -21,9 +21,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
-import { USE_DUMMY_ROADMAP_NOTES } from "@/utils/constants";
-import { getDummyNoteHtml } from "@/utils/dummyNotes";
+import { useEffect, useState } from "react";
 
 export function RoadmapPage() {
   const navigate = useNavigate();
@@ -35,8 +33,21 @@ export function RoadmapPage() {
     completeTask,
     generateRoadmap,
     isGeneratingRoadmap,
+    fetchStudyRoadmapCurrent,
+    syncStudyRoadmapCurrentPhase,
   } = useStore();
   const { isPaid, isLoading: isCheckingPayment } = usePaymentStatus();
+
+  useEffect(() => {
+    if (!user?.examDate || !isPaid || isCheckingPayment) return;
+    void fetchStudyRoadmapCurrent();
+  }, [
+    user?.id,
+    user?.examDate,
+    isPaid,
+    isCheckingPayment,
+    fetchStudyRoadmapCurrent,
+  ]);
 
   // Note Page state
   const [isNotePageOpen, setIsNotePageOpen] = useState(false);
@@ -88,13 +99,10 @@ export function RoadmapPage() {
     return null;
   };
 
-  const fetchNoteHtml = async (topicId: string, lessonTitle: string) => {
+  // Fetch note HTML from backend
+  const fetchNoteHtml = async (topicId: string) => {
     setNoteLoading(true);
     try {
-      if (USE_DUMMY_ROADMAP_NOTES) {
-        setNoteHtml(getDummyNoteHtml(topicId, lessonTitle));
-        return;
-      }
       const response = await fetch(`/api/notes/${topicId}`);
       if (!response.ok) throw new Error("Failed to fetch note");
       const data = await response.json();
@@ -119,7 +127,7 @@ export function RoadmapPage() {
     setCurrentDayIndex(dayIndex);
     setCurrentTaskIndex(taskIndex);
     setIsNotePageOpen(true);
-    fetchNoteHtml(task.topicId, task.title);
+    fetchNoteHtml(task.topicId);
   };
 
   // Handle Next button in note page
@@ -153,7 +161,7 @@ export function RoadmapPage() {
       // Open next note
       setCurrentDayIndex(nextDayIndex);
       setCurrentTaskIndex(nextTaskIndex);
-      fetchNoteHtml(nextTask.topicId, nextTask.title);
+      fetchNoteHtml(nextTask.topicId);
     } else {
       // Handle other task types (assignment, reinforcement, etc.)
       completeTask(nextTask.id);
@@ -210,6 +218,7 @@ export function RoadmapPage() {
       });
       return;
     }
+    void syncStudyRoadmapCurrentPhase(day.dayNumber);
   };
 
   const getSubjectColor = (subjectId: string) => {

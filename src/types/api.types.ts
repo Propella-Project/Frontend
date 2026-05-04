@@ -79,6 +79,70 @@ export interface QuizResultsPayload {
   results: QuizResultItem[];
 }
 
+// Study roadmap (Propella AI Engine — persisted in Supabase)
+export interface RoadmapProgress {
+  completed_phase_orders: number[];
+  current_phase_order: number | null;
+}
+
+/** One task inside a phase from POST/GET `/study/roadmap*` */
+export interface StudyRoadmapPhaseTask {
+  id?: string;
+  title?: string;
+  description?: string;
+  type?: string;
+  subject?: string;
+  subject_id?: string;
+  topic?: string;
+  topic_id?: string;
+  duration?: number;
+  duration_minutes?: number;
+}
+
+export interface StudyRoadmapPhase {
+  order: number;
+  date?: string;
+  is_rest?: boolean;
+  title: string;
+  description: string;
+  study_notes?: string;
+  tasks?: StudyRoadmapPhaseTask[];
+}
+
+export interface RoadmapResponse {
+  user_id?: string;
+  phases: StudyRoadmapPhase[];
+  roadmap_id?: string | null;
+  saved?: boolean;
+  progress?: RoadmapProgress | null;
+  exam_date?: string;
+  subjects?: string[];
+  goal?: string | null;
+}
+
+export interface StudyRoadmapGeneratePayload {
+  user_id: string;
+  subjects: string[];
+  exam_date: string;
+  goal?: string;
+  quiz_result?: Array<{
+    subject: string;
+    question: string;
+    options: string[];
+    correct_answer: string;
+    allocated_time?: number;
+  }>;
+}
+
+export interface StudyRoadmapProgressMergePayload {
+  user_id: string;
+  roadmap_id: string;
+  mark_complete?: number[];
+  mark_incomplete?: number[];
+  update_current?: boolean;
+  current_phase_order?: number | null;
+}
+
 // Roadmap Types
 export interface RoadmapTask {
   id: string;

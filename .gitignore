@@ -4,3 +4,14 @@ dist
 .env.local
 .env.*
 *.env
+.env
+.env.development
+.env.production
+.env.test
+.env.test.local
+.env.test.*
+.env.test.*.local
+.env.test.*.*
+.env.test.*.*.local
+.env.test.*.*.*
+.env.test.*.*.*.local

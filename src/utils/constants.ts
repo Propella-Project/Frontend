@@ -31,10 +31,6 @@ export const MAX_LEVEL = 100;
 // Streak Configuration
 export const STREAK_WARNING_DAYS = 2; // Warn user if they haven't studied in 2 days
 
-/** Roadmap lesson notes: bundled dummy HTML unless VITE_USE_DUMMY_NOTES=false */
-export const USE_DUMMY_ROADMAP_NOTES =
-  import.meta.env.VITE_USE_DUMMY_NOTES !== "false";
-
 // Payment Configuration
 export const PAYMENT_CURRENCY = "NGN";
 export const PAYMENT_AMOUNT = 5000; // Default amount in Naira
@@ -66,6 +62,14 @@ export const HTTP_STATUS = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   SERVER_ERROR: 500,
+} as const;
+
+/** AI Engine `/study/*` paths (base URL: VITE_AI_ENGINE_BASE_URL) */
+export const AI_ENGINE_STUDY_PATHS = {
+  ROADMAP: "/study/roadmap",
+  ROADMAP_CURRENT: "/study/roadmap/current",
+  ROADMAP_PROGRESS: "/study/roadmap/progress",
+  ROADMAP_PROGRESS_MERGE: "/study/roadmap/progress/merge",
 } as const;
 
 // Error Messages

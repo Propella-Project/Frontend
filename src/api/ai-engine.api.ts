@@ -79,6 +79,7 @@ export interface SendMessageResponse {
 // ==========================================
 
 export interface RoadmapGenerateRequest {
+  user_id?: string;
   subjects: string[];
   exam_date: string;
   goal?: string;
@@ -99,6 +100,12 @@ export interface RoadmapPhase {
 
 export interface RoadmapGenerateResponse {
   phases: RoadmapPhase[];
+  roadmap_id?: string | null;
+  saved?: boolean;
+  progress?: {
+    completed_phase_orders: number[];
+    current_phase_order: number | null;
+  };
 }
 
 // ==========================================
